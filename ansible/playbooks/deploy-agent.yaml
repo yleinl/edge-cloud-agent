@@ -26,10 +26,10 @@
         state: present
         update_cache: yes
 
-    - name: Remove old repo if exists
-      file:
-        path: "{{ app_dir }}"
-        state: absent
+#    - name: Remove old repo if exists
+#      file:
+#        path: "{{ app_dir }}"
+#        state: absent
 
     - name: Clone agent repo
       git:
@@ -55,6 +55,16 @@
         src: "{{ architecture_template }}"
         dest: "{{ app_dir }}/agent/arch/architecture.yaml"
         mode: '0644'
+
+    - name: Kill existing agent process (matching app.py)
+      shell: |
+        pkill -f 'python3.*agent/app.py' || true
+      ignore_errors: true
+
+    - name: Kill any process using port 31113
+      shell: |
+        pid=$(lsof -ti:31113) && kill -9 $pid || true
+      ignore_errors: true
 
     - name: Start agent (background with config)
       shell: |

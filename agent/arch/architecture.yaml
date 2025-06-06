@@ -3,7 +3,7 @@ node:
 
 topology:
   - id: cloud
-    role: controller
+    role: cloud-controller
     zone: cloud
     address: yl-04.lab.uvalight.net
     offload:

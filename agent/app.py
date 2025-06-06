@@ -122,7 +122,7 @@ def reload_config():
 
 @app.route("/entry", methods=["POST"])
 def entry():
-
+    status = 200
     cfg = config_manager.config
     self_node = config_manager.self_node
     topo = config_manager.topo_map
@@ -149,7 +149,7 @@ def entry():
     try:
         # === Centralized ===
         if arch == "centralized":
-            schedulers = [n for n in topo if n["role"] == "cloud"]
+            schedulers = [n for n in topo.values() if n["role"] == "cloud-controller"]
             if not schedulers:
                 return jsonify({"error": "No centralized scheduler found"}), 500
             scheduler = random.choice(schedulers)
@@ -159,7 +159,7 @@ def entry():
 
         # === Federated ===
         elif arch == "federated":
-            schedulers = [n for n in topo if n["zone"] == node_zone and n["role"] == "edge-controller"]
+            schedulers = [n for n in topo.values() if n["zone"] == node_zone and n["role"] == "edge-controller"]
 
             if node_role == "edge-controller":
                 if should_offload(config_manager, fn_name) and hop <= 2:
@@ -203,7 +203,7 @@ def entry():
         # === Decentralized ===
         elif arch == "decentralized":
             if should_offload(config_manager, fn_name) and hop <= 2:
-                candidates = [n for n in topo if n["id"] != self_node["id"]]
+                candidates = [n for n in topo.values() if n["id"] != self_node["id"]]
                 if not candidates:
                     return jsonify({"error": "No offload targets available"}), 500
                 target = select_target(candidates, fn_name, response_log)
@@ -280,7 +280,7 @@ def schedule():
     res = None
     if arch == "centralized":
         if node_role == "cloud":
-            available_targets = [n for n in topo]
+            available_targets = [n for n in topo.values()]
             target = select_target(available_targets, func_name, response_log)
             start_time = time.time()
             res = invoke_remote_faas(func_name, payload, target)
@@ -293,7 +293,7 @@ def schedule():
     elif arch == "federated":
         if node_role == "edge-controller":
             available_targets = [
-                n for n in topo
+                n for n in topo.values()
                 if n["zone"] == node_zone
             ]
             target = select_target(available_targets, func_name, response_log)
