@@ -169,7 +169,7 @@ def entry():
                     candidates = [
                         node for node in topo.values()
                         if node["id"] != self_id and (
-                            node["role"] == "cloud" or
+                            node["role"] == "cloud-controller" or
                             (node["zone"] != self_zone and node["role"] in ["edge-controller", "worker"])
                         )
                     ]
@@ -279,7 +279,7 @@ def schedule():
     node_zone = self_node.get("zone")
     res = None
     if arch == "centralized":
-        if node_role == "cloud":
+        if node_role == "cloud-controller":
             available_targets = [n for n in topo.values()]
             target = select_target(available_targets, func_name, response_log)
             start_time = time.time()
