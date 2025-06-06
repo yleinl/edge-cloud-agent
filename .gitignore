@@ -1,2 +1,3 @@
 ./functions/build
 ./functions/template
+*.pyc
