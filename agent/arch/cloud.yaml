@@ -1,0 +1,40 @@
+architecture: centralized
+
+node:
+  id: cloud
+
+topology:
+  - id: cloud
+    role: controller
+    zone: cloud
+    address: yl-04.lab.uvalight.net
+    offload:
+      enabled: false
+
+  - id: edge1
+    role: edge-controller
+    zone: edge1
+    address: yl-01.lab.uvalight.net
+    offload:
+      enabled: true
+
+  - id: edge2
+    role: worker
+    zone: edge1
+    address: yl-02.lab.uvalight.net
+    offload:
+      enabled: true
+
+  - id: edge3
+    role: edge-controller
+    zone: edge2
+    address: yl-03.lab.uvalight.net
+    offload:
+      enabled: true
+
+  - id: edge4
+    role: worker
+    zone: edge2
+    address: yl-06.lab.uvalight.net
+    offload:
+      enabled: true

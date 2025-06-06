@@ -1,0 +1,12 @@
+- name: Fetch K3s token from server
+  delegate_to: yl-04.lab.uvalight.net
+  become: yes
+  slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: k3s_token
+
+- name: Install K3s worker
+  shell: |
+    curl -sfL https://get.k3s.io | K3S_URL=https://yl-04.lab.uvalight.net:6443 K3S_TOKEN={{ k3s_token['content'] | b64decode }} sh -
+  args:
+    executable: /bin/bash

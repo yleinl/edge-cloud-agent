@@ -1,0 +1,45 @@
+- name: Install Helm
+  shell: curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+  args:
+    executable: /bin/bash
+
+- name: Add OpenFaaS Helm repo
+  shell: helm repo add openfaas https://openfaas.github.io/faas-netes
+
+- name: Update Helm repos
+  shell: helm repo update
+
+- name: Create OpenFaaS namespaces
+  shell: |
+    kubectl create namespace openfaas || true
+    kubectl create namespace openfaas-fn || true
+
+- name: Install OpenFaaS using Helm
+  shell: |
+    helm upgrade openfaas openfaas/openfaas \
+      --install \
+      --namespace openfaas \
+      --set functionNamespace=openfaas-fn \
+      --set generateBasicAuth=true \
+      --set gateway.upstreamTimeout=60s
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+- name: Get username from K8s secret
+  shell: |
+    kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-user}" | base64 -d
+  register: user_raw
+
+- name: Get password from K8s secret
+  shell: |
+    kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 -d
+  register: pass_raw
+
+- name: Save credentials to local file
+  local_action:
+    module: copy
+    content: |
+      Host: {{ inventory_hostname }}
+      Username: {{ user_raw.stdout }}
+      Password: {{ pass_raw.stdout }}
+    dest: "{{ inventory_hostname }}.txt"

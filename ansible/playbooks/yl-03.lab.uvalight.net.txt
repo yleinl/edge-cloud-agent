@@ -1,0 +1,3 @@
+Host: yl-03.lab.uvalight.net
+Username: admin
+Password: LScs4LJu0JztOwYty1IQan85MN5KnVj3n0VXwwdE60CXTslYhwOahrzGoNUyfOH

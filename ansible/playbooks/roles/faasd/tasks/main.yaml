@@ -1,0 +1,209 @@
+- name: Install dependencies
+  apt:
+    name: ['git', 'curl', 'cgroup-tools']
+    state: present
+    update_cache: yes
+
+# uninstall logic
+- name: Stop faasd service
+  systemd:
+    name: faasd
+    state: stopped
+  ignore_errors: true
+
+- name: Disable faasd service
+  systemd:
+    name: faasd
+    enabled: no
+  ignore_errors: true
+
+- name: Stop containerd service
+  systemd:
+    name: containerd
+    state: stopped
+  ignore_errors: true
+
+- name: Kill all faasd-related containerd tasks
+  shell: |
+    ctr -n openfaas tasks ls -q | xargs -r -n1 ctr -n openfaas tasks kill
+  ignore_errors: true
+
+- name: Kill all faasd background processes (manual launch)
+  shell: |
+    pkill -9 -f "/usr/local/bin/faasd"
+  ignore_errors: true
+
+- name: Remove all faasd-related containerd containers
+  shell: |
+    ctr -n openfaas containers ls -q | xargs -r -n1 ctr -n openfaas containers rm
+  ignore_errors: true
+
+- name: Kill containerd and related processes
+  shell: |
+    pkill -9 containerd || true
+    pkill -9 runc || true
+    pkill -9 containerd-shim || true
+    pkill -9 containerd-shim-runc-v2 || true
+  ignore_errors: true
+
+- name: Delete faasd systemd service file
+  file:
+    path: /etc/systemd/system/faasd.service
+    state: absent
+
+- name: Remove faasd state and config directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/faasd
+    - /etc/faasd
+    - /var/lib/containerd
+    - /etc/cni
+    - /opt/cni
+
+- name: Remove faasd and containerd binaries
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/local/bin/faasd
+    - /usr/local/bin/containerd
+    - /usr/local/bin/containerd-shim
+    - /usr/local/bin/containerd-shim-runc-v2
+    - /usr/local/bin/ctr
+    - /usr/local/bin/runc
+    - /usr/local/bin/faas-containerd
+
+- name: Delete CNI bridges
+  shell: |
+    ip link delete cni0 || true
+    ip link delete flannel0 || true
+  ignore_errors: true
+
+- name: Remove containerd running state directories (gateway, prometheus, etc.)
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /run/containerd/io.containerd.runtime.v2.task/openfaas/gateway
+    - /run/containerd/io.containerd.runtime.v2.task/openfaas/prometheus
+    - /run/containerd/io.containerd.runtime.v2.task/openfaas/nats
+    - /run/containerd/io.containerd.runtime.v2.task/openfaas/queue-worker
+  ignore_errors: true
+
+
+- name: Reload systemd
+  shell: systemctl daemon-reexec && systemctl daemon-reload
+
+- name: Force remove containerd binary (if locked)
+  file:
+    path: /usr/local/bin/containerd
+    state: absent
+  become: yes
+  ignore_errors: true
+
+- name: Force remove faas binary (if locked)
+  file:
+    path: /usr/local/bin/faasd
+    state: absent
+  become: yes
+  ignore_errors: true
+
+- name: Install faasd (via install.sh)
+  shell: |
+    git clone https://github.com/openfaas/faasd --depth=1
+    cd faasd
+    sudo ./hack/install.sh
+  args:
+    executable: /bin/bash
+    creates: /etc/systemd/system/faasd.service
+
+- name: Start faasd
+  systemd:
+    name: faasd
+    enabled: yes
+    state: started
+
+- name: Remove broken Caddy repositories
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/caddy-stable.list
+    - /etc/apt/sources.list.d/caddy-fury.list
+
+- name: Update apt cache (clean)
+  apt:
+    update_cache: yes
+
+- name: Install NGINX
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+
+- name: Configure NGINX reverse proxy to faasd
+  copy:
+    dest: /etc/nginx/sites-available/faasd
+    content: |
+      server {
+          listen 31112;
+          location / {
+              proxy_pass http://127.0.0.1:8080;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+      }
+
+      server {
+          listen 31119;
+          location / {
+              proxy_pass http://127.0.0.1:9090;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+      }
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable faasd NGINX site
+  file:
+    src: /etc/nginx/sites-available/faasd
+    dest: /etc/nginx/sites-enabled/faasd
+    state: link
+
+- name: Remove default NGINX site (if any)
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Restart NGINX
+  systemd:
+    name: nginx
+    enabled: yes
+    state: restarted
+
+- name: Read faasd username
+  ansible.builtin.slurp:
+    src: /var/lib/faasd/secrets/basic-auth-user
+  register: user_raw
+
+- name: Read faasd password
+  ansible.builtin.slurp:
+    src: /var/lib/faasd/secrets/basic-auth-password
+  register: pass_raw
+
+- name: Save credentials to local file
+  local_action:
+    module: copy
+    content: |
+      Host: {{ inventory_hostname }}
+      Username: {{ user_raw.content | b64decode }}
+      Password: {{ pass_raw.content | b64decode }}
+    dest: "{{ inventory_hostname }}.txt"

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+DEV=ens3
+tc qdisc del dev $DEV root || true
+
+tc qdisc add dev $DEV root handle 1: prio bands 10
+
+{% for target, meta in all_hosts.items() %}
+  {% if target != inventory_hostname %}
+    {% set dst_ip = hostvars[target]['ansible_host'] %}
+    {% set delay = delay_matrix[meta.group][all_hosts[inventory_hostname].group] %}
+    {% set flow = loop.index %}
+
+    echo "Setting delay {{ delay }}ms to {{ dst_ip }} (flowid 1:{{ flow }})"
+
+    tc qdisc add dev $DEV parent 1:{{ flow }} handle {{ 10 + flow }}: netem delay {{ delay }}ms
+
+    tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip dst {{ dst_ip }}/32 flowid 1:{{ flow }}
+
+  {% endif %}
+{% endfor %}

@@ -1,0 +1,33 @@
+all:
+  vars:
+    ansible_user: yitao
+
+  children:
+    k3s:
+      hosts:
+        yl-04.lab.uvalight.net:
+        yl-05.lab.uvalight.net:
+    k3s_server:
+      hosts:
+        yl-04.lab.uvalight.net:
+    k3s_worker:
+      hosts:
+        yl-05.lab.uvalight.net:
+    edge:
+      hosts:
+        yl-01.lab.uvalight.net:
+        yl-02.lab.uvalight.net:
+        yl-03.lab.uvalight.net:
+        yl-06.lab.uvalight.net:
+    faasunits:
+      hosts:
+        yl-01.lab.uvalight.net:
+        yl-02.lab.uvalight.net:
+        yl-03.lab.uvalight.net:
+        yl-04.lab.uvalight.net:
+        yl-06.lab.uvalight.net:
+    data:
+      hosts:
+        yl-01.lab.uvalight.net:
+
+

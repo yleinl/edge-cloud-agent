@@ -1,0 +1,25 @@
+all:
+  vars:
+    ansible_user: yitao
+
+  children:
+    edge1:
+      hosts:
+        yl-01.lab.uvalight.net:
+          ansible_host: 145.100.135.5
+        yl-02.lab.uvalight.net:
+          ansible_host: 145.100.135.126
+
+    edge2:
+      hosts:
+        yl-03.lab.uvalight.net:
+          ansible_host: 145.100.135.117
+        yl-06.lab.uvalight.net:
+          ansible_host: 145.100.135.65
+
+    cloud:
+      hosts:
+        yl-04.lab.uvalight.net:
+          ansible_host: 145.100.135.33
+        yl-05.lab.uvalight.net:
+          ansible_host: 145.100.135.51
