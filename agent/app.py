@@ -240,7 +240,7 @@ def entry():
 def invoke():
     data = request.get_json()
 
-    fn_name = data.get("func")
+    fn_name = data.get("fn_name")
     payload = data.get("payload", "")
 
     if not fn_name:
@@ -271,7 +271,7 @@ def schedule():
 
     data = request.get_json()
     tag = data.get("tag", "default")
-    func_name = data.get("func", "hello")
+    func_name = data.get("fn_name", "hello")
     payload = data.get("payload", {})
 
     arch = config_manager.get_architecture()
