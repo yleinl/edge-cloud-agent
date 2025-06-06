@@ -22,10 +22,15 @@ all:
     faasunits:
       hosts:
         yl-01.lab.uvalight.net:
+          node_id: edge1
         yl-02.lab.uvalight.net:
+          node_id: edge2
         yl-03.lab.uvalight.net:
+          node_id: edge3
         yl-04.lab.uvalight.net:
+          node_id: cloud
         yl-06.lab.uvalight.net:
+          node_id: edge4
     data:
       hosts:
         yl-01.lab.uvalight.net:

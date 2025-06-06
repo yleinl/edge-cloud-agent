@@ -133,7 +133,7 @@ def entry():
     payload = data.get("payload", "")
     deadline = data.get("deadline", "")
     hop = data.get("hop", 0)
-    arch = cfg.get_architecture()
+    arch = config_manager.get_architecture()
     node_id = self_node.get("id")
     node_role = self_node.get("role")
     node_zone = self_node.get("zone")
@@ -274,7 +274,7 @@ def schedule():
     func_name = data.get("func", "hello")
     payload = data.get("payload", {})
 
-    arch = cfg.get_architecture()
+    arch = config_manager.get_architecture()
     node_role = self_node.get("role")
     node_zone = self_node.get("zone")
     res = None
