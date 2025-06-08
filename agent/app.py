@@ -327,7 +327,7 @@ def metrics():
     return jsonify(result), 200
 
 
-@app.route("/load", methods=["POST"])
+@app.route("/load", methods=["GET"])
 def load():
     cpu = psutil.cpu_percent() / 100
     load0 = psutil.getloadavg()[0]
