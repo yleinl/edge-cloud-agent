@@ -1,5 +1,5 @@
 node:
-  id: cloud
+  id: edge1
 
 topology:
   - id: cloud

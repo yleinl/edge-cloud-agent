@@ -43,14 +43,14 @@ def get_average_response_time(node_id, fn_name):
 
 
 def should_offload(configManager, fn_name):
-    if not configManager.config["offload"].get("enabled", True):
+    self_node = configManager.self_node
+    arch = configManager.get_architecture()
+    if not self_node["offload"].get("enabled", True):
         return False
 
-    arch = configManager.get_architecture()
-    cpu_thresh = configManager.config["offload"].get("cpu_thresh", 0.7)
-    load_thresh = configManager.config["offload"].get("load_thresh", 0.7)
+    cpu_thresh = self_node["offload"].get("cpu_thresh", 0.7)
+    load_thresh = self_node["offload"].get("load_thresh", 0.7)
 
-    self_node = configManager.self_node
     topo_map = configManager.topo_map
     role = self_node.get("role")
     zone = self_node.get("zone")
@@ -220,7 +220,7 @@ def entry():
                     "response": res.json()
                 }
             else:
-                result, status = invoke_local_faas(fn_name, payload)
+                result = invoke_local_faas(fn_name, payload)
 
         else:
             return jsonify({"error": f"Unsupported architecture: {arch}"}), 400
