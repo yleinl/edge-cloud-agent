@@ -3,13 +3,16 @@ import string
 import os
 import json
 import time
-AGENT_ENTRY = os.getenv("AGENT_URL", "http://127.0.0.1:31113/entry")
+import sys
+
+
+AGENT_ENTRY = os.getenv("AGENT_URL", "http://yl-01.lab.uvalight.net:31113/entry")
 
 
 def call_agent(func_name, payload, tag="dag-chain", hop=0):
     data = {
         "tag": tag,
-        "func": func_name,
+        "fn_name": func_name,
         "payload": payload,
         "hop": hop
     }
@@ -32,3 +35,9 @@ def handle(req):
     endTime = time.time()
     elaspedFunTime = "Total time to execute the function is: " + str(endTime-startTime) + " seconds"
     return elaspedFunTime
+
+
+if __name__ == "__main__":
+    req = sys.stdin.read()
+    res = handle(req)
+    print(res)

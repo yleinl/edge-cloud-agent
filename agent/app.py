@@ -80,7 +80,7 @@ def should_offload(configManager, fn_name):
         for node in zone_members:
             try:
                 url = f"{node['address']}:31113/metrics"
-                res = requests.post(url, json={"fn_name": fn_name}, timeout=3)
+                res = requests.post(url, json={"fn_name": fn_name}, timeout=60)
                 if res.status_code == 200:
                     data = res.json()
                     cpu = data["system_metrics"].get("cpu_usage")
@@ -154,7 +154,7 @@ def entry():
                 return jsonify({"error": "No centralized scheduler found"}), 500
             scheduler = random.choice(schedulers)
             url = f"http://{scheduler['address']}:31113/schedule"
-            res = requests.post(url, json=request_obj, timeout=3)
+            res = requests.post(url, json=request_obj, timeout=60)
             result, status = res.json(), res.status_code
 
         # === Federated ===
@@ -189,13 +189,13 @@ def entry():
                     status = res.status_code
                 else:
                     url = f"http://127.0.0.1:31113/schedule"
-                    res = requests.post(url, json=request_obj, timeout=3)
+                    res = requests.post(url, json=request_obj, timeout=60)
                     result, status = res.json(), res.status_code
 
             elif schedulers:
                 controller = schedulers[0]
                 url = f"http://{controller['address']}:31113/schedule"
-                res = requests.post(url, json=request_obj, timeout=3)
+                res = requests.post(url, json=request_obj, timeout=60)
                 result, status = res.json(), res.status_code
             else:
                 return jsonify({"error": "No edge controller in same zone"}), 500
@@ -343,10 +343,11 @@ def load():
 # test API
 @app.route("/configuration", methods=["GET"])
 def configuration():
+    arch = config_manager.arch
     cfg = config_manager.config
     self_node = config_manager.self_node
     topo = config_manager.topo_map
-    return jsonify({"cfg":cfg, "self":self_node, "topo":topo}), 300
+    return jsonify({"arch": arch, "cfg": cfg, "self": self_node, "topo": topo}), 300
 
 
 # --- Entry Point ---

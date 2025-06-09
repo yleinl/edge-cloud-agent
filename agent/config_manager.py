@@ -7,7 +7,7 @@ class ConfigManager:
         self.config = {}
         self.self_node = {}
         self.topo_map = {}
-        self.arch = "centralized"  # 默认架构
+        self.arch = "centralized"  # default
 
         self.load()
 
