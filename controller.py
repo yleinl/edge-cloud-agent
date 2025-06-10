@@ -26,5 +26,5 @@ def reload_architecture(arch):
 
 
 if __name__ == "__main__":
-    arch = "centralized"
+    arch = "decentralized"
     reload_architecture(arch)

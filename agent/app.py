@@ -122,6 +122,7 @@ def reload_config():
 
 @app.route("/entry", methods=["POST"])
 def entry():
+    total_start = time.time()
     status = 200
     cfg = config_manager.config
     self_node = config_manager.self_node
@@ -230,6 +231,7 @@ def entry():
         if deadline and now > float(deadline):
             return jsonify({"error": "Deadline exceeded"}), 408
 
+        result["total_time"] = round(time.time() - total_start, 6)
         return jsonify(result), status
 
     except Exception as e:
