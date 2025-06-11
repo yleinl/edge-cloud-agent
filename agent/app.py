@@ -163,7 +163,7 @@ def entry():
             schedulers = [n for n in topo.values() if n["zone"] == node_zone and n["role"] == "edge-controller"]
 
             if node_role == "edge-controller":
-                if should_offload(config_manager, fn_name) and hop <= 2:
+                if should_offload(config_manager, fn_name) and hop <= 1:
                     self_zone = self_node.get("zone")
                     self_id = self_node.get("id")
 
@@ -189,13 +189,13 @@ def entry():
                     }
                     status = res.status_code
                 else:
-                    url = f"http://127.0.0.1:31113/entry"
+                    url = f"http://127.0.0.1:31113/schedule"
                     res = requests.post(url, json=request_obj, timeout=60)
                     result, status = res.json(), res.status_code
 
             elif schedulers:
                 controller = schedulers[0]
-                url = f"http://{controller['address']}:31113/schedule"
+                url = f"http://{controller['address']}:31113/entry"
                 res = requests.post(url, json=request_obj, timeout=60)
                 result, status = res.json(), res.status_code
             else:
@@ -203,7 +203,7 @@ def entry():
 
         # === Decentralized ===
         elif arch == "decentralized":
-            if should_offload(config_manager, fn_name) and hop <= 2:
+            if should_offload(config_manager, fn_name) and hop <= 1:
                 candidates = [n for n in topo.values() if n["id"] != self_node["id"]]
                 if not candidates:
                     return jsonify({"error": "No offload targets available"}), 500
