@@ -6,8 +6,7 @@ import time
 import sys
 
 
-AGENT_ENTRY = os.getenv("AGENT_URL", "http://yl-01.lab.uvalight.net:31113/entry")
-
+AGENT_ENTRY = os.getenv("AGENT_URL", "http://localhost:31113/entry")
 
 def call_agent(func_name, payload, tag="dag-chain", hop=0):
     data = {

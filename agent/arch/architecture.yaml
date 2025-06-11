@@ -15,8 +15,8 @@ topology:
     address: yl-01.lab.uvalight.net
     offload:
       enabled: true
-      cpu_thresh: 0.7
-      load_thresh: 1.5
+      cpu_thresh: 0.85
+      load_thresh: 1.7
 
   - id: edge2
     role: worker
@@ -24,8 +24,8 @@ topology:
     address: yl-02.lab.uvalight.net
     offload:
       enabled: true
-      cpu_thresh: 0.7
-      load_thresh: 1.5
+      cpu_thresh: 0.85
+      load_thresh: 1.7
 
   - id: edge3
     role: edge-controller
@@ -33,8 +33,8 @@ topology:
     address: yl-03.lab.uvalight.net
     offload:
       enabled: true
-      cpu_thresh: 0.7
-      load_thresh: 1.5
+      cpu_thresh: 0.85
+      load_thresh: 1.7
 
   - id: edge4
     role: worker
@@ -42,5 +42,5 @@ topology:
     address: yl-06.lab.uvalight.net
     offload:
       enabled: true
-      cpu_thresh: 0.7
-      load_thresh: 1.5
+      cpu_thresh: 0.85
+      load_thresh: 1.7

@@ -18,7 +18,7 @@
       cloud:
         edge1: 120
         edge2: 120
-        cloud: 20
+        cloud: 0
 
     all_hosts:
       yl-01.lab.uvalight.net: { group: edge1 }
@@ -26,7 +26,6 @@
       yl-03.lab.uvalight.net: { group: edge2 }
       yl-06.lab.uvalight.net: { group: edge2 }
       yl-04.lab.uvalight.net: { group: cloud }
-      yl-05.lab.uvalight.net: { group: cloud }
 
   tasks:
     - name: Remove previous tc setup script if exists

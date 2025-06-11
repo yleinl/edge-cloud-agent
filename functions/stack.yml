@@ -60,3 +60,14 @@ functions:
       exec_timeout: 0
     labels:
       com.openfaas.scale.min: 1
+
+  matrix-multiplication:
+    lang: dockerfile
+    handler: ./Default/matrix_multiplication
+    image: yitaolei2025/matrix_multiplication:latest
+    environment:
+      read_timeout: 0
+      write_timeout: 0
+      exec_timeout: 0
+    labels:
+      com.openfaas.scale.min: 1

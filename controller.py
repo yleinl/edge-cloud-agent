@@ -11,7 +11,6 @@ nodes = [
     "yl-06.lab.uvalight.net",
 ]
 
-# 发送 reload 请求
 def reload_architecture(arch):
     for node in nodes:
         url = f"http://{node}:31113/reload"

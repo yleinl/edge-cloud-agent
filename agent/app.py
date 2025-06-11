@@ -48,8 +48,8 @@ def should_offload(configManager, fn_name):
     if not self_node["offload"].get("enabled", True):
         return False
 
-    cpu_thresh = self_node["offload"].get("cpu_thresh", 0.7)
-    load_thresh = self_node["offload"].get("load_thresh", 0.7)
+    cpu_thresh = self_node["offload"].get("cpu_thresh", 0.85)
+    load_thresh = self_node["offload"].get("load_thresh", 1.7)
 
     topo_map = configManager.topo_map
     role = self_node.get("role")
@@ -189,7 +189,7 @@ def entry():
                     }
                     status = res.status_code
                 else:
-                    url = f"http://127.0.0.1:31113/schedule"
+                    url = f"http://127.0.0.1:31113/entry"
                     res = requests.post(url, json=request_obj, timeout=60)
                     result, status = res.json(), res.status_code
 
