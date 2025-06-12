@@ -163,7 +163,7 @@ def entry():
         elif arch == "federated":
             schedulers = [n for n in topo.values() if n["zone"] == node_zone and n["role"] == "edge-controller"]
 
-            if node_role and "controller" in node_role:
+            if node_role == "edge-controller":
                 if should_offload(config_manager, fn_name) and hop <= 1:
                     self_zone = self_node.get("zone")
                     self_id = self_node.get("id")
@@ -194,7 +194,8 @@ def entry():
                     url = f"http://127.0.0.1:31113/schedule"
                     res = requests.post(url, json=request_obj, timeout=60)
                     result, status = res.json(), res.status_code
-
+            elif node_role == "cloud-controller":
+                result = invoke_local_faas(fn_name, payload)
             elif schedulers:
                 controller = schedulers[0]
                 url = f"http://{controller['address']}:31113/entry"
