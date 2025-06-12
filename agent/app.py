@@ -58,9 +58,18 @@ def should_offload(configManager, fn_name):
 
     # === Decentralized: focus on load status ===
     if arch == "decentralized":
-        cpu = psutil.cpu_percent(interval=0.1) / 100
-        load0 = psutil.getloadavg()[0]
-        return cpu > cpu_thresh and load0 > load_thresh
+        # cpu = psutil.cpu_percent(interval=0.1) / 100
+        # load0 = psutil.getloadavg()[0]
+        url = f"http://127.0.0.1:31113/metrics"
+        res = requests.post(url, json={"fn_name": fn_name}, timeout=60)
+
+        if res.status_code == 200:
+            data = res.json()
+            cpu = data["system_metrics"].get("cpu", 0)
+            load0 = data["system_metrics"].get("load0", 0)
+            return cpu > cpu_thresh and load0 > load_thresh
+        else:
+            return False
 
     # === Federated：edge-controller pull zone status ===
     elif arch == "federated":
@@ -136,7 +145,7 @@ def entry():
         "fn_name": fn_name,
         "payload": payload,
         "deadline": deadline,
-        "hop": hop + 1
+        "hop": hop
     }
 
     try:
@@ -172,6 +181,7 @@ def entry():
                     url = f"http://{target['address']}:31113/entry"
                     start = time.time()
                     # result, status = invoke_remote_faas(fn_name, payload, target)
+                    request_obj["hop"] = request_obj.get("hop", 0) + 1
                     res = requests.post(url, json=request_obj, timeout=5)
                     duration = time.time() - start
                     record_response_time(target["zone"], fn_name, duration)
@@ -204,6 +214,7 @@ def entry():
 
                 start = time.time()
                 # result, status = invoke_remote_faas(fn_name, payload, target)
+                request_obj["hop"] = request_obj.get("hop", 0) + 1
                 res = requests.post(url, json=request_obj, timeout=5)
                 duration = time.time() - start
                 record_response_time(target["id"], fn_name, duration)
