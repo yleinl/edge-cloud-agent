@@ -163,7 +163,7 @@ def entry():
         elif arch == "federated":
             schedulers = [n for n in topo.values() if n["zone"] == node_zone and n["role"] == "edge-controller"]
 
-            if node_role == "edge-controller":
+            if node_role and "controller" in node_role:
                 if should_offload(config_manager, fn_name) and hop <= 1:
                     self_zone = self_node.get("zone")
                     self_id = self_node.get("id")
