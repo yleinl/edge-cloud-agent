@@ -2,7 +2,7 @@ from collections import defaultdict, deque
 
 from flask import Flask, request, jsonify
 from agent.core.executor import invoke_local_faas, invoke_remote_faas
-from agent.core.metrics import get_basic_metrics, get_function_metrics, get_execution_time_ratio
+from agent.core.metrics import get_function_metrics, get_execution_time_ratio
 from agent.core.scheduler import select_target, select_zone
 from config_manager import ConfigManager
 import argparse
@@ -48,8 +48,8 @@ def should_offload(configManager, fn_name):
     if not self_node["offload"].get("enabled", True):
         return False
 
-    cpu_thresh = self_node["offload"].get("cpu_thresh", 0.85)
-    load_thresh = self_node["offload"].get("load_thresh", 1.7)
+    cpu_thresh = self_node["offload"].get("cpu_thresh", 0.9)
+    load_thresh = self_node["offload"].get("load_thresh", 1.8)
 
     topo_map = configManager.topo_map
     role = self_node.get("role")
@@ -69,7 +69,7 @@ def should_offload(configManager, fn_name):
 
         zone_members = [
             node for node in topo_map.values()
-            if node.get("zone") == zone and node.get("id") != self_id
+            if node.get("zone") == zone
         ]
 
         if not zone_members:
@@ -83,10 +83,10 @@ def should_offload(configManager, fn_name):
                 res = requests.post(url, json={"fn_name": fn_name}, timeout=60)
                 if res.status_code == 200:
                     data = res.json()
-                    cpu = data["system_metrics"].get("cpu_usage")
+                    cpu = data["system_metrics"].get("cpu")
                     load0 = data["system_metrics"].get("load0")
                     if cpu is not None:
-                        cpu_vals.append(cpu / 100)
+                        cpu_vals.append(cpu)
                     if load0 is not None:
                         load_vals.append(load0)
             except Exception as e:
@@ -134,7 +134,7 @@ def entry():
     payload = data.get("payload", "")
     deadline = data.get("deadline", "")
     hop = data.get("hop", 0)
-    arch = config_manager.get_architecture()
+    arch = data.get("arch", config_manager.get_architecture())
     node_id = self_node.get("id")
     node_role = self_node.get("role")
     node_zone = self_node.get("zone")
@@ -314,8 +314,13 @@ def schedule():
 def metrics():
     data = request.get_json()
     function = data.get("fn_name")
+    cpu = psutil.cpu_percent(interval=0.1) / 100
+    load0 = psutil.getloadavg()[0]
 
-    system_metric = get_basic_metrics()
+    system_metric = {
+        "cpu": cpu,
+        "load0": load0
+    }
     function_metric = get_function_metrics(function)
     func_time_ratio = get_execution_time_ratio(function)
 

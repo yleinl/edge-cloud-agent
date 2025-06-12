@@ -20,35 +20,35 @@ def query_prometheus(promql):
         return []
 
 
-def get_basic_metrics():
-    metrics = {}
-
-    # 1. Load average (1m)
-    load_query = 'node_load1'
-    result = query_prometheus(load_query)
-    if result:
-        metrics["load1"] = float(result[0]["value"][1])
-
-    # 2. Memory usage (used/total)
-    mem_total = query_prometheus('node_memory_MemTotal_bytes')
-    mem_free = query_prometheus('node_memory_MemAvailable_bytes')
-    if mem_total and mem_free:
-        total = float(mem_total[0]["value"][1])
-        free = float(mem_free[0]["value"][1])
-        used = total - free
-        metrics["memory_used_percent"] = used / total
-
-    # 3. CPU usage (100 - idle)
-    cpu_idle = query_prometheus('avg(rate(node_cpu_seconds_total{mode="idle"}[1m]))')
-    if cpu_idle:
-        idle = float(cpu_idle[0]["value"][1])
-        metrics["cpu_used_percent"] = 1.0 - idle
-
-    return metrics
+# def get_basic_metrics():
+#     metrics = {}
+#
+#     # 1. Load average (1m)
+#     load_query = 'node_load1'
+#     result = query_prometheus(load_query)
+#     if result:
+#         metrics["load1"] = float(result[0]["value"][1])
+#
+#     # 2. Memory usage (used/total)
+#     mem_total = query_prometheus('node_memory_MemTotal_bytes')
+#     mem_free = query_prometheus('node_memory_MemAvailable_bytes')
+#     if mem_total and mem_free:
+#         total = float(mem_total[0]["value"][1])
+#         free = float(mem_free[0]["value"][1])
+#         used = total - free
+#         metrics["memory_used_percent"] = used / total
+#
+#     # 3. CPU usage (100 - idle)
+#     cpu_idle = query_prometheus('avg(rate(node_cpu_seconds_total{mode="idle"}[1m]))')
+#     if cpu_idle:
+#         idle = float(cpu_idle[0]["value"][1])
+#         metrics["cpu_used_percent"] = 1.0 - idle
+#
+#     return metrics
 
 
 def get_function_metrics(fn_name: str):
-    fn_name = fn_name + ",openfaas-fn"
+    fn_name = fn_name + ".openfaas-fn"
     stats = {}
     window: str = "1m"
     # 1. avg execution time = sum / count
@@ -79,7 +79,7 @@ def get_function_metrics(fn_name: str):
 
 
 def get_execution_time_ratio(fn_name):
-    fn_name = fn_name + ",openfaas-fn"
+    fn_name = fn_name + ".openfaas-fn"
     """Returns (current_exec_time / historical_exec_time, current_exec_time)"""
     current_query = f"""
         rate(gateway_functions_seconds_sum{{function_name="{fn_name}"}}[1m])
