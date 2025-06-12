@@ -80,7 +80,7 @@ def should_offload(configManager, fn_name):
         cpu_vals, load_vals = [], []
         for node in zone_members:
             try:
-                url = f"{node['address']}:31113/metrics"
+                url = f"http://{node['address']}:31113/metrics"
                 res = requests.post(url, json={"fn_name": fn_name}, timeout=60)
                 if res.status_code == 200:
                     data = res.json()
