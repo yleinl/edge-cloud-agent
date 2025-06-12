@@ -84,10 +84,13 @@ def should_offload(configManager, fn_name):
         if not cpu_vals and not load_vals:
             return False
 
-        avg_cpu = sum(cpu_vals) / len(cpu_vals)
-        avg_load = sum(load_vals) / len(load_vals)
-
-        return avg_cpu > cpu_thresh and avg_load > load_thresh
+        # avg_cpu = sum(cpu_vals) / len(cpu_vals)
+        # avg_load = sum(load_vals) / len(load_vals)
+        #
+        # return avg_cpu > cpu_thresh and avg_load > load_thresh
+        all_over_cpu = all(cpu > cpu_thresh for cpu in cpu_vals)
+        all_over_load = all(load > load_thresh for load in load_vals)
+        return all_over_cpu and all_over_load
 
     return False
 

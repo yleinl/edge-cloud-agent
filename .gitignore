@@ -2,3 +2,4 @@ functions\build
 functions\template
 *.pyc
 *.json
+*.csv

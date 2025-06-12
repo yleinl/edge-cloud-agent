@@ -20,11 +20,11 @@
 
   tasks:
 
-    - name: Install system dependencies
-      apt:
-        name: "{{ python_deps }}"
-        state: present
-        update_cache: yes
+#    - name: Install system dependencies
+#      apt:
+#        name: "{{ python_deps }}"
+#        state: present
+#        update_cache: yes
 
 #    - name: Remove old repo if exists
 #      file:
