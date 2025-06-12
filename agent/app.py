@@ -19,7 +19,7 @@ LOCAL_PROM = "http://127.0.0.1:31119/"
 
 response_log = defaultdict(deque)
 TIME_WINDOW = 60
-
+alpha = 0.3
 
 def record_response_time(node_id, fn_name, duration):
     now = time.time()
@@ -28,18 +28,6 @@ def record_response_time(node_id, fn_name, duration):
 
     while response_log[key] and now - response_log[key][0][0] > TIME_WINDOW:
         response_log[key].popleft()
-
-
-def get_average_response_time(node_id, fn_name):
-    now = time.time()
-    key = (node_id, fn_name)
-    window = [
-        rt for ts, rt in response_log[key]
-        if now - ts <= TIME_WINDOW
-    ]
-    if not window:
-        return float("inf")
-    return sum(window) / len(window)
 
 
 def should_offload(configManager, fn_name):
@@ -164,7 +152,7 @@ def entry():
             schedulers = [n for n in topo.values() if n["zone"] == node_zone and n["role"] == "edge-controller"]
 
             if node_role == "edge-controller":
-                if should_offload(config_manager, fn_name) and hop <= 1:
+                if should_offload(config_manager, fn_name) and hop <= 2:
                     self_zone = self_node.get("zone")
                     self_id = self_node.get("id")
 
@@ -184,6 +172,7 @@ def entry():
                     request_obj["hop"] = request_obj.get("hop", 0) + 1
                     res = requests.post(url, json=request_obj, timeout=5)
                     duration = time.time() - start
+                    duration = duration * (1 + alpha * res.json().get("hop", 0))
                     record_response_time(target["zone"], fn_name, duration)
                     result = {
                         "message": f"Offloaded to zone {target['id']}",
@@ -206,7 +195,7 @@ def entry():
 
         # === Decentralized ===
         elif arch == "decentralized":
-            if should_offload(config_manager, fn_name) and hop <= 1:
+            if should_offload(config_manager, fn_name) and hop <= 2:
                 candidates = [n for n in topo.values() if n["id"] != self_node["id"]]
                 if not candidates:
                     return jsonify({"error": "No offload targets available"}), 500
@@ -218,6 +207,7 @@ def entry():
                 request_obj["hop"] = request_obj.get("hop", 0) + 1
                 res = requests.post(url, json=request_obj, timeout=5)
                 duration = time.time() - start
+                duration = duration * (1 + alpha * res.json().get("hop", 0))
                 record_response_time(target["id"], fn_name, duration)
 
                 result = {
@@ -226,6 +216,7 @@ def entry():
                 }
             else:
                 result = invoke_local_faas(fn_name, payload)
+
 
         else:
             return jsonify({"error": f"Unsupported architecture: {arch}"}), 400
@@ -236,6 +227,7 @@ def entry():
             return jsonify({"error": "Deadline exceeded"}), 408
 
         result["total_time"] = round(time.time() - total_start, 6)
+        result["hop"] = hop
         return jsonify(result), status
 
     except Exception as e:

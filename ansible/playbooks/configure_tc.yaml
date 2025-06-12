@@ -8,17 +8,17 @@
     # delay matrix
     delay_matrix:
       edge1:
-        edge1: 20
-        edge2: 40
-        cloud: 120
-      edge2:
-        edge1: 40
+        edge1: 5
         edge2: 20
-        cloud: 120
+        cloud: 60
+      edge2:
+        edge1: 20
+        edge2: 5
+        cloud: 60
       cloud:
-        edge1: 120
-        edge2: 120
-        cloud: 0
+        edge1: 60
+        edge2: 60
+        cloud: 1
 
     all_hosts:
       yl-01.lab.uvalight.net: { group: edge1 }
@@ -26,6 +26,7 @@
       yl-03.lab.uvalight.net: { group: edge2 }
       yl-06.lab.uvalight.net: { group: edge2 }
       yl-04.lab.uvalight.net: { group: cloud }
+      yl-05.lab.uvalight.net: { group: cloud }
 
   tasks:
     - name: Remove previous tc setup script if exists

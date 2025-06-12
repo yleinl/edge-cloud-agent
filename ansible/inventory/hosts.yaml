@@ -29,6 +29,8 @@ all:
           node_id: edge3
         yl-04.lab.uvalight.net:
           node_id: cloud
+        yl-05.lab.uvalight.net:
+          node_id: cloud
         yl-06.lab.uvalight.net:
           node_id: edge4
     data:
