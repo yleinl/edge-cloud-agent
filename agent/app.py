@@ -3,6 +3,7 @@ from collections import defaultdict, deque
 from flask import Flask, request, jsonify
 from agent.core.executor import invoke_local_faas, invoke_remote_faas
 from agent.core.metrics import get_function_metrics, get_execution_time_ratio
+from agent.core.metrics_cache import MetricsCache
 from agent.core.scheduler import select_target, select_zone
 from config_manager import ConfigManager
 import argparse
@@ -20,6 +21,7 @@ LOCAL_PROM = "http://127.0.0.1:31119/"
 response_log = defaultdict(deque)
 TIME_WINDOW = 60
 alpha = 0.3
+metrics_cache = None
 
 def record_response_time(node_id, fn_name, duration):
     now = time.time()
@@ -60,37 +62,58 @@ def should_offload(configManager, fn_name):
             return False
 
     # === Federated：edge-controller pull zone status ===
+    # elif arch == "federated":
+    #     zone_members = [
+    #         node for node in topo_map.values()
+    #         if node.get("zone") == zone
+    #     ]
+    #     cpu_vals, load_vals = [], []
+    #     for node in zone_members:
+    #         try:
+    #             url = f"http://{node['address']}:31113/metrics"
+    #             res = requests.post(url, json={"fn_name": fn_name}, timeout=60)
+    #             if res.status_code == 200:
+    #                 data = res.json()
+    #                 cpu = data["system_metrics"].get("cpu")
+    #                 load0 = data["system_metrics"].get("load0")
+    #                 if cpu is not None:
+    #                     cpu_vals.append(cpu)
+    #                 if load0 is not None:
+    #                     load_vals.append(load0)
+    #         except Exception as e:
+    #             current_app.logger.warning(f"Failed to get /status from {node['id']}: {e}")
+    #
+    #     if not cpu_vals and not load_vals:
+    #         return False
     elif arch == "federated":
-        zone_members = [
-            node for node in topo_map.values()
-            if node.get("zone") == zone
-        ]
-        cpu_vals, load_vals = [], []
-        for node in zone_members:
-            try:
-                url = f"http://{node['address']}:31113/metrics"
-                res = requests.post(url, json={"fn_name": fn_name}, timeout=60)
-                if res.status_code == 200:
-                    data = res.json()
-                    cpu = data["system_metrics"].get("cpu")
-                    load0 = data["system_metrics"].get("load0")
-                    if cpu is not None:
-                        cpu_vals.append(cpu)
-                    if load0 is not None:
-                        load_vals.append(load0)
-            except Exception as e:
-                current_app.logger.warning(f"Failed to get /status from {node['id']}: {e}")
-
-        if not cpu_vals and not load_vals:
+        if not metrics_cache:
             return False
+
+        zone_nodes = [
+            node for node in topo_map.values() if node["zone"] == zone
+        ]
+
+        cpu_vals, load_vals = [], []
+        for node in zone_nodes:
+            m = metrics_cache.get_metrics(node["id"])
+            if m:
+                cpu_vals.append(m["cpu"])
+                load_vals.append(m["load0"])
+
+        if not cpu_vals or not load_vals:
+            return False
+
+        all_over_cpu = all(cpu > cpu_thresh for cpu in cpu_vals)
+        all_over_load = all(load > load_thresh for load in load_vals)
+        return all_over_cpu and all_over_load
 
         # avg_cpu = sum(cpu_vals) / len(cpu_vals)
         # avg_load = sum(load_vals) / len(load_vals)
         #
         # return avg_cpu > cpu_thresh and avg_load > load_thresh
-        all_over_cpu = all(cpu > cpu_thresh for cpu in cpu_vals)
-        all_over_load = all(load > load_thresh for load in load_vals)
-        return all_over_cpu and all_over_load
+        # all_over_cpu = all(cpu > cpu_thresh for cpu in cpu_vals)
+        # all_over_load = all(load > load_thresh for load in load_vals)
+        # return all_over_cpu and all_over_load
 
     return False
 
@@ -248,7 +271,7 @@ def invoke():
         return jsonify({"error": "Missing 'func' field"}), 400
 
     try:
-        
+
         url = f"{LOCAL_GATEWAY}/function/{fn_name}"
         headers = {"Content-Type": "text/plain"}
 
@@ -363,5 +386,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_manager = ConfigManager(path=args.config)
+    metrics_cache = MetricsCache(config_manager.topo_map)
+    metrics_cache.start()
 
     app.run(host="0.0.0.0", port=31113)
