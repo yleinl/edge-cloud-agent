@@ -16,7 +16,7 @@ topology:
     offload:
       enabled: true
       cpu_thresh: 0.9
-      load_thresh: 1.8
+      load_thresh: 3.0
 
   - id: edge2
     role: worker
@@ -25,7 +25,7 @@ topology:
     offload:
       enabled: true
       cpu_thresh: 0.9
-      load_thresh: 1.8
+      load_thresh: 3.0
 
   - id: edge3
     role: edge-controller
@@ -34,7 +34,7 @@ topology:
     offload:
       enabled: true
       cpu_thresh: 0.9
-      load_thresh: 1.8
+      load_thresh: 3.0
 
   - id: edge4
     role: worker
@@ -43,4 +43,4 @@ topology:
     offload:
       enabled: true
       cpu_thresh: 0.9
-      load_thresh: 1.8
+      load_thresh: 3.0

@@ -49,7 +49,7 @@ def should_offload(configManager, fn_name):
         return False
 
     cpu_thresh = self_node["offload"].get("cpu_thresh", 0.9)
-    load_thresh = self_node["offload"].get("load_thresh", 1.8)
+    load_thresh = self_node["offload"].get("load_thresh", 3)
 
     topo_map = configManager.topo_map
     role = self_node.get("role")
@@ -60,23 +60,15 @@ def should_offload(configManager, fn_name):
     if arch == "decentralized":
         cpu = psutil.cpu_percent(interval=0.1) / 100
         load0 = psutil.getloadavg()[0]
-        return cpu > cpu_thresh or load0 > load_thresh
+        return cpu > cpu_thresh and load0 > load_thresh
 
     # === Federated：edge-controller pull zone status ===
     elif arch == "federated":
-        if role != "edge-controller":
-            return False
-
         zone_members = [
             node for node in topo_map.values()
             if node.get("zone") == zone
         ]
-
-        if not zone_members:
-            return False
-
         cpu_vals, load_vals = [], []
-
         for node in zone_members:
             try:
                 url = f"{node['address']}:31113/metrics"
@@ -92,13 +84,13 @@ def should_offload(configManager, fn_name):
             except Exception as e:
                 current_app.logger.warning(f"Failed to get /status from {node['id']}: {e}")
 
-        if not cpu_vals or not load_vals:
+        if not cpu_vals and not load_vals:
             return False
 
         avg_cpu = sum(cpu_vals) / len(cpu_vals)
         avg_load = sum(load_vals) / len(load_vals)
 
-        return avg_cpu > cpu_thresh or avg_load > load_thresh
+        return avg_cpu > cpu_thresh and avg_load > load_thresh
 
     return False
 
