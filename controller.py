@@ -9,6 +9,7 @@ nodes = [
     "yl-03.lab.uvalight.net",
     "yl-04.lab.uvalight.net",
     "yl-06.lab.uvalight.net",
+    "localhost"
 ]
 
 def reload_architecture(arch):
@@ -25,5 +26,5 @@ def reload_architecture(arch):
 
 
 if __name__ == "__main__":
-    arch = "decentralized"
+    arch = "federated"
     reload_architecture(arch)

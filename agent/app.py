@@ -100,7 +100,7 @@ def entry():
                     if node["role"] == "cloud-controller" or node["role"] == "edge-controller"
                 ]
                 if psutil.cpu_percent(interval=0.1) / 100 <= 0.8 and psutil.getloadavg()[0] <= 2:
-                    target = self_zone
+                    target = self_node
                 else:
                     target = select_zone(candidates, fn_name, response_log)
                 if target["zone"] != self_zone:
@@ -142,7 +142,7 @@ def entry():
         elif arch == "decentralized":
             candidates = [n for n in topo.values()]
             if psutil.cpu_percent(interval=0.1) / 100 < 0.8 and psutil.getloadavg()[0] < 2:
-                target = self_node["id"]
+                target = self_node
             else:
                 target = select_target(candidates, fn_name, response_log)
             start = time.time()
