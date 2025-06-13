@@ -23,6 +23,7 @@ TIME_WINDOW = 60
 alpha = 0.3
 metrics_cache = None
 
+
 def record_response_time(node_id, fn_name, duration):
     now = time.time()
     key = (node_id, fn_name)
@@ -30,92 +31,6 @@ def record_response_time(node_id, fn_name, duration):
 
     while response_log[key] and now - response_log[key][0][0] > TIME_WINDOW:
         response_log[key].popleft()
-
-
-def should_offload(configManager, fn_name):
-    self_node = configManager.self_node
-    arch = configManager.get_architecture()
-    if not self_node["offload"].get("enabled", True):
-        return False
-
-    cpu_thresh = self_node["offload"].get("cpu_thresh", 0.9)
-    load_thresh = self_node["offload"].get("load_thresh", 3)
-
-    topo_map = configManager.topo_map
-    role = self_node.get("role")
-    zone = self_node.get("zone")
-    self_id = self_node.get("id")
-
-    # === Decentralized: focus on load status ===
-    if arch == "decentralized":
-        # cpu = psutil.cpu_percent(interval=0.1) / 100
-        # load0 = psutil.getloadavg()[0]
-        url = f"http://127.0.0.1:31113/metrics"
-        res = requests.post(url, json={"fn_name": fn_name}, timeout=60)
-
-        if res.status_code == 200:
-            data = res.json()
-            cpu = data["system_metrics"].get("cpu", 0)
-            load0 = data["system_metrics"].get("load0", 0)
-            return cpu > cpu_thresh and load0 > load_thresh
-        else:
-            return False
-
-    # === Federated：edge-controller pull zone status ===
-    # elif arch == "federated":
-    #     zone_members = [
-    #         node for node in topo_map.values()
-    #         if node.get("zone") == zone
-    #     ]
-    #     cpu_vals, load_vals = [], []
-    #     for node in zone_members:
-    #         try:
-    #             url = f"http://{node['address']}:31113/metrics"
-    #             res = requests.post(url, json={"fn_name": fn_name}, timeout=60)
-    #             if res.status_code == 200:
-    #                 data = res.json()
-    #                 cpu = data["system_metrics"].get("cpu")
-    #                 load0 = data["system_metrics"].get("load0")
-    #                 if cpu is not None:
-    #                     cpu_vals.append(cpu)
-    #                 if load0 is not None:
-    #                     load_vals.append(load0)
-    #         except Exception as e:
-    #             current_app.logger.warning(f"Failed to get /status from {node['id']}: {e}")
-    #
-    #     if not cpu_vals and not load_vals:
-    #         return False
-    elif arch == "federated":
-        if not metrics_cache:
-            return False
-
-        zone_nodes = [
-            node for node in topo_map.values() if node["zone"] == zone
-        ]
-
-        cpu_vals, load_vals = [], []
-        for node in zone_nodes:
-            m = metrics_cache.get_metrics(node["id"])
-            if m:
-                cpu_vals.append(m["cpu"])
-                load_vals.append(m["load0"])
-
-        if not cpu_vals or not load_vals:
-            return False
-
-        all_over_cpu = all(cpu > cpu_thresh for cpu in cpu_vals)
-        all_over_load = all(load > load_thresh for load in load_vals)
-        return all_over_cpu and all_over_load
-
-        # avg_cpu = sum(cpu_vals) / len(cpu_vals)
-        # avg_load = sum(load_vals) / len(load_vals)
-        #
-        # return avg_cpu > cpu_thresh and avg_load > load_thresh
-        # all_over_cpu = all(cpu > cpu_thresh for cpu in cpu_vals)
-        # all_over_load = all(load > load_thresh for load in load_vals)
-        # return all_over_cpu and all_over_load
-
-    return False
 
 
 @app.route("/reload", methods=["POST"])
@@ -178,36 +93,40 @@ def entry():
             schedulers = [n for n in topo.values() if n["zone"] == node_zone and n["role"] == "edge-controller"]
 
             if node_role == "edge-controller":
-                if should_offload(config_manager, fn_name) and hop <= 2:
-                    self_zone = self_node.get("zone")
-                    self_id = self_node.get("id")
-
-                    candidates = [
-                        node for node in topo.values()
-                        if node["id"] != self_id and (
-                            node["role"] == "cloud-controller" or
-                            (node["zone"] != self_zone and node["role"] in ["edge-controller", "worker"])
-                        )
-                    ]
-                    if not candidates:
-                        return jsonify({"error": "No available candidates for offload"}), 500
+                self_zone = self_node.get("zone")
+                # self_id = self_node.get("id")
+                candidates = [
+                    node for node in topo.values()
+                    if node["role"] == "cloud-controller" or node["role"] == "edge-controller"
+                ]
+                if psutil.cpu_percent(interval=0.1) / 100 <= 0.8 and psutil.getloadavg()[0] <= 2:
+                    target = self_zone
+                else:
                     target = select_zone(candidates, fn_name, response_log)
+                if target["zone"] != self_zone:
                     url = f"http://{target['address']}:31113/entry"
                     start = time.time()
-                    # result, status = invoke_remote_faas(fn_name, payload, target)
                     request_obj["hop"] = request_obj.get("hop", 0) + 1
                     res = requests.post(url, json=request_obj, timeout=5)
-                    duration = time.time() - start
-                    duration = duration * (1 + alpha * res.json().get("hop", 0))
-                    record_response_time(target["zone"], fn_name, duration)
                     result = {
-                        "message": f"Offloaded to zone {target['id']}",
+                        "message": f"Offloaded to zone {target['zone']}",
                         "response": res.json()
                     }
                     status = res.status_code
+                    duration = time.time() - start
+                    duration = duration * (1 + alpha * res.json().get("hop", 0))
+                    record_response_time(target["zone"], fn_name, duration)
                 else:
-                    url = f"http://127.0.0.1:31113/schedule"
-                    res = requests.post(url, json=request_obj, timeout=60)
+                    start_time = time.time()
+                    schedule_targets = [
+                        n for n in topo.values()
+                        if n["zone"] == node_zone
+                    ]
+                    target = select_target(schedule_targets, fn_name, response_log)
+                    res = invoke_remote_faas(fn_name, payload, target)
+                    end_time = time.time()
+                    duration = end_time - start_time
+                    record_response_time(self_zone, fn_name, duration)
                     result, status = res.json(), res.status_code
             elif node_role == "cloud-controller":
                 result = invoke_local_faas(fn_name, payload)
@@ -221,29 +140,28 @@ def entry():
 
         # === Decentralized ===
         elif arch == "decentralized":
-            if should_offload(config_manager, fn_name) and hop <= 2:
-                candidates = [n for n in topo.values() if n["id"] != self_node["id"]]
-                if not candidates:
-                    return jsonify({"error": "No offload targets available"}), 500
+            candidates = [n for n in topo.values()]
+            if psutil.cpu_percent(interval=0.1) / 100 < 0.8 and psutil.getloadavg()[0] < 2:
+                target = self_node["id"]
+            else:
                 target = select_target(candidates, fn_name, response_log)
+            start = time.time()
+            if target["id"] != self_node["id"]:
                 url = f"http://{target['address']}:31113/entry"
-
-                start = time.time()
                 # result, status = invoke_remote_faas(fn_name, payload, target)
                 request_obj["hop"] = request_obj.get("hop", 0) + 1
                 res = requests.post(url, json=request_obj, timeout=5)
-                duration = time.time() - start
-                duration = duration * (1 + alpha * res.json().get("hop", 0))
-                record_response_time(target["id"], fn_name, duration)
 
                 result = {
                     "message": f"Offloaded to node {target['id']}",
                     "response": res.json()
                 }
+                duration = time.time() - start
+                duration = duration * (1 + alpha * res.json().get("hop", 0))
             else:
                 result = invoke_local_faas(fn_name, payload)
-
-
+                duration = time.time() - start
+            record_response_time(target["id"], fn_name, duration)
         else:
             return jsonify({"error": f"Unsupported architecture: {arch}"}), 400
 
@@ -386,7 +304,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_manager = ConfigManager(path=args.config)
-    metrics_cache = MetricsCache(config_manager.topo_map)
-    metrics_cache.start()
 
     app.run(host="0.0.0.0", port=31113)
