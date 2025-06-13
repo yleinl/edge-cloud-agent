@@ -245,7 +245,10 @@ def entry():
                     "response": res.json()
                 }
             else:
+                start = time.time()
                 result = invoke_local_faas(fn_name, payload)
+                duration = time.time() - start
+                record_response_time(self_node["id"], fn_name, duration)
         else:
             return jsonify({"error": f"Unsupported architecture: {arch}"}), 400
 
