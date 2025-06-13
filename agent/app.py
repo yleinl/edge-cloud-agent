@@ -54,7 +54,6 @@ def get_offload_ratio(fn_name, arch):
     if len(latencies) < min_req:
         return 0.0
 
-    print(f"[offload-check] {key} has {len(latencies)} samples")
     estimator.update(latencies)
     return estimator.compute_offload_ratio(soft, hard)
 
@@ -64,8 +63,6 @@ def should_offload(configManager, fn_name):
     if not self_node["offload"].get("enabled", False):
         return False
     arch = configManager.get_architecture()
-
-    print(f"offload ratio {get_offload_ratio(fn_name, arch)} ")
     return random.random() < get_offload_ratio(fn_name, arch)
 # def should_offload(configManager, fn_name):
 #     self_node = configManager.self_node

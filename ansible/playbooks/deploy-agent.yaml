@@ -21,16 +21,16 @@
 
   tasks:
 
-#    - name: Install system dependencies
-#      apt:
-#        name: "{{ python_deps }}"
-#        state: present
-#        update_cache: yes
+    - name: Install system dependencies
+      apt:
+        name: "{{ python_deps }}"
+        state: present
+        update_cache: yes
 
-#    - name: Remove old repo if exists
-#      file:
-#        path: "{{ app_dir }}"
-#        state: absent
+    - name: Remove old repo if exists
+      file:
+        path: "{{ app_dir }}"
+        state: absent
 
     - name: Clone agent repo
       git:
@@ -39,17 +39,17 @@
         force: yes
         accept_hostkey: yes
 
-#    - name: Create virtual environment
-#      shell: |
-#        python3 -m venv {{ venv_dir }}
-#      args:
-#        creates: "{{ venv_dir }}/bin/activate"
-#
-#    - name: Install Python packages in venv
-#      shell: |
-#        source {{ venv_dir }}/bin/activate && pip install --no-cache-dir {{ pip_packages | join(' ') }}
-#      args:
-#        executable: /bin/bash
+    - name: Create virtual environment
+      shell: |
+        python3 -m venv {{ venv_dir }}
+      args:
+        creates: "{{ venv_dir }}/bin/activate"
+
+    - name: Install Python packages in venv
+      shell: |
+        source {{ venv_dir }}/bin/activate && pip install --no-cache-dir {{ pip_packages | join(' ') }}
+      args:
+        executable: /bin/bash
 
     - name: Apply node-specific architecture.yaml
       template:
