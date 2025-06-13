@@ -59,9 +59,6 @@ def get_offload_ratio(fn_name, arch):
 
 
 def should_offload(configManager, fn_name):
-    self_node = configManager.self_node
-    if not self_node["offload"].get("enabled", False):
-        return False
     arch = configManager.get_architecture()
     return random.random() < get_offload_ratio(fn_name, arch)
 # def should_offload(configManager, fn_name):
@@ -213,12 +210,8 @@ def entry():
                     }
                     status = res.status_code
                 else:
-                    start = time.time()
                     url = f"http://127.0.0.1:31113/schedule"
                     res = requests.post(url, json=request_obj, timeout=60)
-                    duration = time.time() - start
-                    record_response_time(self_node["zone"], fn_name, duration)
-
                     result, status = res.json(), res.status_code
             elif node_role == "cloud-controller":
                 result = invoke_local_faas(fn_name, payload)
