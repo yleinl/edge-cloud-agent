@@ -13,7 +13,6 @@
       - requests
       - psutil
       - pyyaml
-      - numpy
     repo_url: "https://github.com/yleinl/edge-cloud-agent"
     app_dir: "/home/{{ ansible_user }}/edge-cloud-agent"
     venv_dir: "{{ app_dir }}/venv"
@@ -21,16 +20,16 @@
 
   tasks:
 
-    - name: Install system dependencies
-      apt:
-        name: "{{ python_deps }}"
-        state: present
-        update_cache: yes
+#    - name: Install system dependencies
+#      apt:
+#        name: "{{ python_deps }}"
+#        state: present
+#        update_cache: yes
 
-    - name: Remove old repo if exists
-      file:
-        path: "{{ app_dir }}"
-        state: absent
+#    - name: Remove old repo if exists
+#      file:
+#        path: "{{ app_dir }}"
+#        state: absent
 
     - name: Clone agent repo
       git:
