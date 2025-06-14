@@ -123,11 +123,10 @@ def entry():
                         if n["zone"] == node_zone
                     ]
                     target = select_target(schedule_targets, fn_name, response_log)
-                    res = invoke_remote_faas(fn_name, payload, target)
+                    result = invoke_remote_faas(fn_name, payload, target)
                     end_time = time.time()
                     duration = end_time - start_time
                     record_response_time(self_zone, fn_name, duration)
-                    result = jsonify(res)
             elif node_role == "cloud-controller":
                 result = invoke_local_faas(fn_name, payload)
             elif schedulers:
