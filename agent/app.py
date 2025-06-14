@@ -127,7 +127,7 @@ def entry():
                     end_time = time.time()
                     duration = end_time - start_time
                     record_response_time(self_zone, fn_name, duration)
-                    result, status = res.json(), res.status_code
+                    result = jsonify(res)
             elif node_role == "cloud-controller":
                 result = invoke_local_faas(fn_name, payload)
             elif schedulers:
