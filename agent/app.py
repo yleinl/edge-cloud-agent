@@ -107,7 +107,7 @@ def entry():
                     url = f"http://{target['address']}:31113/entry"
                     start = time.time()
                     request_obj["hop"] = request_obj.get("hop", 0) + 1
-                    res = requests.post(url, json=request_obj, timeout=5)
+                    res = requests.post(url, json=request_obj, timeout=60)
                     result = {
                         "message": f"Offloaded to zone {target['zone']}",
                         "response": res.json()
@@ -149,7 +149,7 @@ def entry():
                 url = f"http://{target['address']}:31113/entry"
                 # result, status = invoke_remote_faas(fn_name, payload, target)
                 request_obj["hop"] = request_obj.get("hop", 0) + 1
-                res = requests.post(url, json=request_obj, timeout=5)
+                res = requests.post(url, json=request_obj, timeout=60)
 
                 result = {
                     "message": f"Offloaded to node {target['id']}",
@@ -192,7 +192,7 @@ def invoke():
         url = f"{LOCAL_GATEWAY}/function/{fn_name}"
         headers = {"Content-Type": "text/plain"}
 
-        response = requests.post(url, data=payload, headers=headers, timeout=5)
+        response = requests.post(url, data=payload, headers=headers, timeout=60)
 
         return jsonify({
             "function": fn_name,

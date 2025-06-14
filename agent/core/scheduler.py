@@ -30,7 +30,7 @@ def execute_function(func_name, payload, tag, target):
 
         headers = {"Content-Type": "text/plain"}
 
-        res = requests.post(url, data=payload, headers=headers, timeout=5)
+        res = requests.post(url, data=payload, headers=headers, timeout=60)
 
         return jsonify({
             "target": f"{ip}:{port}",

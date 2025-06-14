@@ -16,7 +16,7 @@ def call_agent(func_name, payload, tag="dag-chain", hop=0):
         "hop": hop
     }
     try:
-        res = requests.post(AGENT_ENTRY, json=data, timeout=5)
+        res = requests.post(AGENT_ENTRY, json=data, timeout=60)
         res.raise_for_status()
         return res.json().get("resp") or res.text
     except Exception as e:

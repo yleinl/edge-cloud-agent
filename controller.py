@@ -16,7 +16,7 @@ def reload_architecture(arch):
     for node in nodes:
         url = f"http://{node}:31113/reload"
         try:
-            response = requests.post(url, json={"architecture": arch}, timeout=5)
+            response = requests.post(url, json={"architecture": arch}, timeout=60)
             if response.status_code == 200:
                 print(f"[✓] {node} reload success: {response.text}")
             else:

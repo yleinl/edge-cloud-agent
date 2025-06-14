@@ -1,4 +1,5 @@
 import gevent.monkey
+
 gevent.monkey.patch_all()
 
 from locust import HttpUser, task
@@ -43,6 +44,7 @@ FUNCTION_MAP = {
 # ===================== 请求日志缓存 =====================
 entry_logs = []
 
+
 def count_offloads(resp):
     if not isinstance(resp, dict):
         return 0
@@ -54,6 +56,7 @@ def count_offloads(resp):
     if isinstance(nested, dict):
         count += count_offloads(nested)
     return count
+
 
 class FaaSUser(HttpUser):
     @task
@@ -68,33 +71,36 @@ class FaaSUser(HttpUser):
 
         start = time.time()
         with self.client.post("/entry", json=payload, catch_response=True) as response:
-            duration = time.time() - start
             try:
                 resp_json = response.json()
                 entry_time = resp_json.get("total_time", -1)
                 flattened = json.dumps(resp_json)
-                match = re.search(r"Total time.*?([\\d\\.]+)", flattened)
+                match = re.search(r"Total time.*?([\d\.]+)", flattened)
+                # print(match.group(1))
                 exec_time = float(match.group(1)) if match else None
                 offload_cnt = count_offloads(resp_json)
-
+                if response.status_code == 500:
+                    print(response.text)
                 entry_logs.append({
                     "status_code": response.status_code,
-                    "entry_total_time": float(entry_time),
-                    "response": resp_json,
+                    "total_time": float(entry_time),
                     "exec_time": exec_time,
-                    "raw_latency": duration,
                     "offload_cnt": offload_cnt
                 })
                 response.success()
+
             except Exception as e:
                 response.failure(f"Exception: {e}")
+
 
 # ===================== Prometheus 查询 =====================
 def parse_datetime(ts):
     return datetime.utcfromtimestamp(ts)
 
+
 def create_prom_clients():
     return [PrometheusConnect(url=url, disable_ssl=True) for url in PROM_URLS]
+
 
 def cpu_avg_utilization(prom, start_time, end_time):
     query = """
@@ -115,6 +121,7 @@ def cpu_avg_utilization(prom, start_time, end_time):
         result[instance] = sum(values) / len(values) * 100 if values else 0.0
     return result
 
+
 def memory_avg_utilization(prom, start_time, end_time):
     query = "node_memory_MemTotal_bytes - (node_memory_MemFree_bytes + node_memory_Cached_bytes + node_memory_Buffers_bytes)"
     metric_data = prom.custom_query_range(
@@ -130,6 +137,7 @@ def memory_avg_utilization(prom, start_time, end_time):
         result[instance] = np.mean(values) / 1024 / 1024 if values else 0.0
     return result
 
+
 # ===================== 控制逻辑 =====================
 def reload_architecture(arch):
     for node in NODES:
@@ -138,6 +146,7 @@ def reload_architecture(arch):
             print(f"[✓] Reloaded {node} to {arch}: {res.status_code}")
         except Exception as e:
             print(f"[x] Reload error on {node}: {e}")
+
 
 def run_experiment_stage(host, func_type, arch, users, spawn_rate, duration, output_csv):
     global entry_logs
@@ -173,7 +182,8 @@ def run_experiment_stage(host, func_type, arch, users, spawn_rate, duration, out
     mem_avg = sum(flat_mem) / len(flat_mem) if flat_mem else None
 
     with open(output_csv, "w", newline="") as f:
-        fieldnames = ["fn_type", "architecture", "status_code", "entry_total_time", "response", "exec_time", "raw_latency", "offload_cnt", "avg_cpu_usage", "avg_mem_usage_MB"]
+        fieldnames = ["fn_type", "architecture", "status_code", "total_time", "exec_time", "offload_cnt",
+                      "avg_cpu_usage", "avg_mem_usage_MB"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for row in entry_logs:
@@ -185,12 +195,13 @@ def run_experiment_stage(host, func_type, arch, users, spawn_rate, duration, out
 
     print(f"✅ Completed: {func_type}-{arch} | saved to {output_csv}")
 
+
 # ===================== experiment entry =====================
 if __name__ == "__main__":
     host = "http://yl-01.lab.uvalight.net:31113"
-    duration = 60
-    spawn_rate = 30
-    users = 30
+    duration = 120
+    spawn_rate = 60
+    users = 60
 
     configs = [
         ("basic", "decentralized"),
@@ -209,3 +220,4 @@ if __name__ == "__main__":
             duration=duration,
             output_csv=outfile
         )
+        time.sleep(60)
