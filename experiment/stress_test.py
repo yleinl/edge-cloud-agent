@@ -210,7 +210,7 @@ if __name__ == "__main__":
     ]
 
     for func_type, arch in configs:
-        outfile = f"results_{func_type}_{arch}.csv"
+        outfile = f"results_{func_type}_{arch}_{users}.csv"
         run_experiment_stage(
             host=host,
             func_type=func_type,

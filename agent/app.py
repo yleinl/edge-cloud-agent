@@ -3,8 +3,9 @@ from collections import defaultdict, deque
 from flask import Flask, request, jsonify
 from agent.core.executor import invoke_local_faas, invoke_remote_faas
 from agent.core.metrics import get_function_metrics, get_execution_time_ratio
-from agent.core.metrics_cache import MetricsCache
 from agent.core.scheduler import select_target, select_zone
+from agent.core.tail_scheduler import TailRatioScheduler
+
 from config_manager import ConfigManager
 import argparse
 import psutil
@@ -21,8 +22,14 @@ LOCAL_PROM = "http://127.0.0.1:31119/"
 response_log = defaultdict(deque)
 TIME_WINDOW = 60
 alpha = 0.3
-metrics_cache = None
 
+tail_scheduler = TailRatioScheduler()
+total_time_log = defaultdict(deque)
+TOTAL_TIME_WINDOW = 60
+
+def get_recent_total_times(fn_name):
+    now = time.time()
+    return [d for ts, d in total_time_log.get(fn_name, []) if now - ts <= TOTAL_TIME_WINDOW]
 
 def record_response_time(node_id, fn_name, duration):
     now = time.time()
@@ -64,10 +71,15 @@ def entry():
     payload = data.get("payload", "")
     deadline = data.get("deadline", "")
     hop = data.get("hop", 0)
-    arch = data.get("arch", config_manager.get_architecture())
     node_id = self_node.get("id")
     node_role = self_node.get("role")
     node_zone = self_node.get("zone")
+    arch = data.get("arch", None)
+
+    if not arch:
+        durations = get_recent_total_times(fn_name)
+        arch_ratios = tail_scheduler.update_ratios(fn_name, durations)
+        arch = tail_scheduler.select_arch(arch_ratios)
 
     request_obj = {
         "tag": tag,
@@ -140,7 +152,7 @@ def entry():
         # === Decentralized ===
         elif arch == "decentralized":
             candidates = [n for n in topo.values()]
-            if psutil.cpu_percent(interval=0.1) / 100 < 0.8 and psutil.getloadavg()[0] < 2:
+            if psutil.cpu_percent(interval=0.1) / 100 < 0.7 and psutil.getloadavg()[0] < 2:
                 target = self_node
             else:
                 target = select_target(candidates, fn_name, response_log)
@@ -171,37 +183,22 @@ def entry():
 
         result["total_time"] = round(time.time() - total_start, 6)
         result["hop"] = hop
+
+        now = time.time()
+        total_time_log[fn_name].append((now, result["total_time"]))
+        while total_time_log[fn_name] and now - total_time_log[fn_name][0][0] > TOTAL_TIME_WINDOW:
+            total_time_log[fn_name].popleft()
+
+        durations = get_recent_total_times(fn_name)
+        arch_ratios = tail_scheduler.update_ratios(fn_name, durations)
+        used_arch = arch
+
+        tail_scheduler.record_arch_perf(used_arch, result["total_time"])
+        tail_scheduler.update_alpha()
         return jsonify(result), status
 
     except Exception as e:
         return jsonify({"error": f"Exception: {str(e)}"}), 500
-
-
-@app.route("/invoke", methods=["POST"])
-def invoke():
-    data = request.get_json()
-
-    fn_name = data.get("fn_name")
-    payload = data.get("payload", "")
-
-    if not fn_name:
-        return jsonify({"error": "Missing 'func' field"}), 400
-
-    try:
-
-        url = f"{LOCAL_GATEWAY}/function/{fn_name}"
-        headers = {"Content-Type": "text/plain"}
-
-        response = requests.post(url, data=payload, headers=headers, timeout=60)
-
-        return jsonify({
-            "function": fn_name,
-            "status_code": response.status_code,
-            "result": response.text
-        }), 200
-
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/schedule", methods=["POST"])
@@ -249,30 +246,6 @@ def schedule():
     return jsonify({"resp": res.get("resp")}), 200
 
 
-@app.route("/metrics", methods=["POST"])
-def metrics():
-    data = request.get_json()
-    function = data.get("fn_name")
-    cpu = psutil.cpu_percent(interval=0.1) / 100
-    load0 = psutil.getloadavg()[0]
-
-    system_metric = {
-        "cpu": cpu,
-        "load0": load0
-    }
-    function_metric = get_function_metrics(function)
-    func_time_ratio = get_execution_time_ratio(function)
-
-    result = {
-        "function": function,
-        "system_metrics": system_metric,
-        "function_metrics": function_metric,
-        "time_ratio": func_time_ratio
-    }
-
-    return jsonify(result), 200
-
-
 @app.route("/load", methods=["GET"])
 def load():
     cpu = psutil.cpu_percent() / 100
@@ -294,6 +267,15 @@ def configuration():
     self_node = config_manager.self_node
     topo = config_manager.topo_map
     return jsonify({"arch": arch, "cfg": cfg, "self": self_node, "topo": topo}), 300
+
+
+@app.route("/arhc_metrics", methods=["GET"])
+def metrics():
+    try:
+        metrics_data = tail_scheduler.get_metrics()
+        return jsonify(metrics_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # --- Entry Point ---
