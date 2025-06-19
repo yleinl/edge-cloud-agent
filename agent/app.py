@@ -27,9 +27,11 @@ tail_scheduler = TailRatioScheduler()
 total_time_log = defaultdict(deque)
 TOTAL_TIME_WINDOW = 60
 
+
 def get_recent_total_times(fn_name):
     now = time.time()
     return [d for ts, d in total_time_log.get(fn_name, []) if now - ts <= TOTAL_TIME_WINDOW]
+
 
 def record_response_time(node_id, fn_name, duration):
     now = time.time()
@@ -74,9 +76,9 @@ def entry():
     node_id = self_node.get("id")
     node_role = self_node.get("role")
     node_zone = self_node.get("zone")
-    arch = data.get("arch", None)
+    arch = data.get("arch", config_manager.get_architecture())
 
-    if not arch:
+    if arch == "dynamic":
         durations = get_recent_total_times(fn_name)
         arch_ratios = tail_scheduler.update_ratios(fn_name, durations)
         arch = tail_scheduler.select_arch(arch_ratios)
