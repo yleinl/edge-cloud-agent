@@ -271,7 +271,7 @@ def configuration():
     return jsonify({"arch": arch, "cfg": cfg, "self": self_node, "topo": topo}), 300
 
 
-@app.route("/arhc_metrics", methods=["GET"])
+@app.route("/arch_metrics", methods=["GET"])
 def metrics():
     try:
         metrics_data = tail_scheduler.get_metrics()

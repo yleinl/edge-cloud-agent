@@ -17,6 +17,7 @@ class TailRatioScheduler:
         min_samples=5,
         sample_interval=10
     ):
+        self.residual = 0.0
         self.arch_ratios = {"centralized": 0.0, "federated": 0.0, "decentralized": 1.0}
         self.decay = decay
         self.window = window
@@ -92,6 +93,19 @@ class TailRatioScheduler:
             weights=list(ratio_dict.values())
         )[0]
 
+    # def update_alpha(self):
+    #     f_times = list(self.arch_perf["federated"])
+    #     d_times = list(self.arch_perf["decentralized"])
+    #     if len(f_times) < 5 or len(d_times) < 5:
+    #         return
+    # 
+    #     f_avg = np.mean(f_times)
+    #     d_avg = np.mean(d_times)
+    # 
+    #     delta = (d_avg - f_avg) / max(d_avg, f_avg)
+    #     self.alpha += 0.02 * delta
+    #     self.alpha = min(max(self.alpha, 0.1), 0.9)  # Clamp alpha
+
     def update_alpha(self):
         f_times = list(self.arch_perf["federated"])
         d_times = list(self.arch_perf["decentralized"])
@@ -101,9 +115,13 @@ class TailRatioScheduler:
         f_avg = np.mean(f_times)
         d_avg = np.mean(d_times)
 
-        delta = (d_avg - f_avg) / max(d_avg, f_avg)
-        self.alpha += 0.02 * delta
-        self.alpha = min(max(self.alpha, 0.1), 0.9)  # Clamp alpha
+        eps_t = d_avg - f_avg  # res
+
+        gamma = 0.8  # memory
+        self.residual = gamma * getattr(self, "residual", 0) + (1 - gamma) * eps_t
+
+        self.alpha += 0.005 * self.residual
+        self.alpha = min(max(self.alpha, 0.1), 0.9)  # clamp
 
     def record_arch_perf(self, arch, total_time):
         if arch in self.arch_perf:
