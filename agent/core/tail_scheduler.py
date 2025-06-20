@@ -33,8 +33,8 @@ class TailRatioScheduler:
         self.r_history: Dict[str, deque] = defaultdict(deque)  # fn_name -> r_l(t)
         self.R_t: Dict[str, float] = defaultdict(lambda: 1.0)   # fn_name -> smoothed R_t(t)
         self.arch_perf = {
-            "federated": deque(maxlen=20),
-            "decentralized": deque(maxlen=20)
+            "federated": deque(maxlen=100),
+            "decentralized": deque(maxlen=100)
         }
 
     def update_ratios(self, fn_name, durations):
