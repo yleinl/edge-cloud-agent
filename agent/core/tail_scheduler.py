@@ -10,7 +10,7 @@ class TailRatioScheduler:
         self,
         decay=0.9,
         window=10,
-        c_soft=1.5,
+        c_soft=1.6,
         c_hard=2.2,
         c_in=0.6,
         alpha=0.8,
