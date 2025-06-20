@@ -273,14 +273,19 @@ def metrics():
 
 
 @app.route("/durations", methods=["GET"])
-def metrics():
+def durations():
     try:
-        metrics_data = tail_scheduler.get_metrics()
-        return jsonify(metrics_data), 200
+        fn_name = "matrix-multiplication"
+        durations_dict = {
+            "centralized": get_recent_total_times(fn_name + "_centralized"),
+            "federated": get_recent_total_times(fn_name + "_federated"),
+            "decentralized": get_recent_total_times(fn_name + "_decentralized")
+        }
+        return jsonify(durations_dict), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    
+
 # --- Entry Point ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
