@@ -11,9 +11,9 @@ class TailRatioScheduler:
         decay=0.9,
         window=10,
         c_soft=1.5,
-        c_hard=2.0,
+        c_hard=2.2,
         c_in=0.6,
-        alpha=0.6,
+        alpha=0.8,
         min_samples=5,
         sample_interval=10
     ):
@@ -85,42 +85,19 @@ class TailRatioScheduler:
 
         # Step 5: weighted average r_t
         r_prime_avg = sum(r_t * weights[arch] for arch, r_t in r_t_list)
-        # if r_prime_avg < self.c_soft:
-        #     r_t_avg = 0
-        # elif r_prime_avg > self.c_hard:
-        #     r_t_avg = 100
-        # else:
-        #     r_t_avg = 100 * (r_prime_avg - self.c_soft) / (self.c_hard - self.c_soft)
-        # self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
-        # R_final = self.R_t[fn_name] / 100
-        #
-        # # Step 6: learn the architecture ratio
-        # centralized = R_final
-        # federated = (1 - R_final) * self.alpha
-        # decentralized = (1 - R_final) * (1 - self.alpha)
-        if r_prime_avg <= self.c_soft:
+        if r_prime_avg < self.c_soft:
             r_t_avg = 0
-            centralized = 0.0
-            federated = 0.0
-            decentralized = 1.0
-
-        elif r_prime_avg <= self.c_hard:
-            r_t_avg = 100 * (r_prime_avg - self.c_soft) / (self.c_hard - self.c_soft)
-            self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
-            R_final = self.R_t[fn_name] / 100
-
-            centralized = 0.0
-            federated = R_final
-            decentralized = 1.0 - R_final
+        elif r_prime_avg > self.c_hard:
+            r_t_avg = 100
         else:
             r_t_avg = 100 * (r_prime_avg - self.c_soft) / (self.c_hard - self.c_soft)
-            self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
-            R_final = self.R_t[fn_name] / 100
+        self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
+        R_final = self.R_t[fn_name] / 100
 
-            centralized = R_final
-            remaining = 1.0 - R_final
-            federated = remaining * self.alpha
-            decentralized = remaining * (1 - self.alpha)
+        # Step 6: learn the architecture ratio
+        centralized = R_final * (1 - self.alpha)
+        federated = R_final * self.alpha
+        decentralized = 1 - R_final
 
         self.arch_ratios[fn_name] = {
             "decentralized": round(decentralized, 3),
@@ -149,22 +126,41 @@ class TailRatioScheduler:
     #     self.alpha += 0.02 * delta
     #     self.alpha = min(max(self.alpha, 0.1), 0.9)  # Clamp alpha
 
+    # def update_alpha(self):
+    #     f_times = list(self.arch_perf["federated"])
+    #     d_times = list(self.arch_perf["decentralized"])
+    #     if len(f_times) < 5 or len(d_times) < 5:
+    #         return
+    #
+    #     f_avg = np.mean(f_times)
+    #     d_avg = np.mean(d_times)
+    #
+    #     eps_t = d_avg - f_avg  # res
+    #
+    #     gamma = 0.8  # memory
+    #     self.residual = gamma * getattr(self, "residual", 0) + (1 - gamma) * eps_t
+    #
+    #     self.alpha += 0.005 * self.residual
+    #     self.alpha = min(max(self.alpha, 0.1), 0.9)  # clamp
+
+
     def update_alpha(self):
         f_times = list(self.arch_perf["federated"])
-        d_times = list(self.arch_perf["decentralized"])
-        if len(f_times) < 5 or len(d_times) < 5:
+        c_times = list(self.arch_perf["centralized"])
+        if len(f_times) < 5 or len(c_times) < 5:
             return
 
         f_avg = np.mean(f_times)
-        d_avg = np.mean(d_times)
+        c_avg = np.mean(c_times)
 
-        eps_t = d_avg - f_avg  # res
+        eps_t = f_avg - c_avg  # res
 
         gamma = 0.8  # memory
         self.residual = gamma * getattr(self, "residual", 0) + (1 - gamma) * eps_t
 
         self.alpha += 0.005 * self.residual
         self.alpha = min(max(self.alpha, 0.1), 0.9)  # clamp
+
 
     def record_arch_perf(self, arch, total_time):
         if arch in self.arch_perf:
