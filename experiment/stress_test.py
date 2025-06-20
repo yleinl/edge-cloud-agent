@@ -62,7 +62,7 @@ class FaaSUser(HttpUser):
     @task
     def call_function(self):
         payload = {
-            "fn_name": FUNCTION_MAP.get(os.getenv("FUNC_TYPE", "basic"), "matrix-multiplication"),
+            "fn_name": FUNCTION_MAP.get(os.getenv("FUNC_TYPE", "static data/basic"), "matrix-multiplication"),
             "payload": None,
             "tag": "load-test"
         }

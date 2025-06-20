@@ -187,7 +187,7 @@ def entry():
             total_time_log[fn_name + "_" + arch].popleft()
 
         tail_scheduler.record_arch_perf(arch, result["total_time"])
-        tail_scheduler.update_alpha()
+        tail_scheduler.update_alpha(fn_name)
 
         return jsonify(result), status
 
@@ -272,6 +272,15 @@ def metrics():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/durations", methods=["GET"])
+def metrics():
+    try:
+        metrics_data = tail_scheduler.get_metrics()
+        return jsonify(metrics_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    
 # --- Entry Point ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

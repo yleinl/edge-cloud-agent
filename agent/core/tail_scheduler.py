@@ -11,14 +11,14 @@ class TailRatioScheduler:
         decay=0.9,
         window=10,
         c_soft=1.5,
-        c_hard=2.2,
+        c_hard=2.0,
         c_in=0.6,
         alpha=0.8,
         min_samples=5,
         sample_interval=10
     ):
-        self.residual = 0.0
-        self.alpha = alpha
+        self.residual: Dict[str, float] = defaultdict(lambda: 0.0)
+        self.alpha: Dict[str, float] = defaultdict(lambda: alpha)
         self.arch_ratios: Dict[str, Dict[str, float]] = defaultdict(lambda: {
             "centralized": 0.0,
             "federated": 0.0,
@@ -73,14 +73,6 @@ class TailRatioScheduler:
 
             weight_hist = [self.decay ** i for i in range(len(hist))]
             r_prime = np.average(hist, weights=weight_hist)
-
-            # if r_prime < self.c_soft:
-            #     r_t = 0
-            # elif r_prime > self.c_hard:
-            #     r_t = 100
-            # else:
-            #     r_t = 100 * (r_prime - self.c_soft) / (self.c_hard - self.c_soft)
-
             r_t_list.append((arch, r_prime))
 
         # Step 5: weighted average r_t
@@ -94,9 +86,10 @@ class TailRatioScheduler:
         self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
         R_final = self.R_t[fn_name] / 100
 
+        alpha = self.alpha[fn_name]
         # Step 6: learn the architecture ratio
-        centralized = R_final * self.alpha
-        federated = R_final * (1 - self.alpha)
+        centralized = R_final * alpha
+        federated = R_final * (1 - alpha)
         decentralized = 1 - R_final
 
         self.arch_ratios[fn_name] = {
@@ -107,44 +100,7 @@ class TailRatioScheduler:
 
         return self.arch_ratios[fn_name]
 
-    def select_arch(self, ratio_dict):
-        return random.choices(
-            population=list(ratio_dict.keys()),
-            weights=list(ratio_dict.values())
-        )[0]
-
-    # def update_alpha(self):
-    #     f_times = list(self.arch_perf["federated"])
-    #     d_times = list(self.arch_perf["decentralized"])
-    #     if len(f_times) < 5 or len(d_times) < 5:
-    #         return
-    # 
-    #     f_avg = np.mean(f_times)
-    #     d_avg = np.mean(d_times)
-    # 
-    #     delta = (d_avg - f_avg) / max(d_avg, f_avg)
-    #     self.alpha += 0.02 * delta
-    #     self.alpha = min(max(self.alpha, 0.1), 0.9)  # Clamp alpha
-
-    # def update_alpha(self):
-    #     f_times = list(self.arch_perf["federated"])
-    #     d_times = list(self.arch_perf["decentralized"])
-    #     if len(f_times) < 5 or len(d_times) < 5:
-    #         return
-    #
-    #     f_avg = np.mean(f_times)
-    #     d_avg = np.mean(d_times)
-    #
-    #     eps_t = d_avg - f_avg  # res
-    #
-    #     gamma = 0.8  # memory
-    #     self.residual = gamma * getattr(self, "residual", 0) + (1 - gamma) * eps_t
-    #
-    #     self.alpha += 0.005 * self.residual
-    #     self.alpha = min(max(self.alpha, 0.1), 0.9)  # clamp
-
-
-    def update_alpha(self):
+    def update_alpha(self, fn_name):
         f_times = list(self.arch_perf["federated"])
         c_times = list(self.arch_perf["centralized"])
         if len(f_times) < 5 or len(c_times) < 5:
@@ -153,13 +109,21 @@ class TailRatioScheduler:
         f_avg = np.mean(f_times)
         c_avg = np.mean(c_times)
 
-        eps_t = f_avg - c_avg  # res
+        eps_t = (f_avg - c_avg) / c_avg if c_avg > 0 else 0
+        eps_t = np.clip(eps_t, -2.0, 2.0)
+        gamma = 0.8
 
-        gamma = 0.8  # memory
-        self.residual = gamma * getattr(self, "residual", 0) + (1 - gamma) * eps_t
+        self.residual[fn_name] = gamma * self.residual[fn_name] + (1 - gamma) * eps_t
 
-        self.alpha += 0.005 * self.residual
-        self.alpha = min(max(self.alpha, 0.1), 0.9)  # clamp
+        self.alpha[fn_name] += 0.05 * self.residual[fn_name]
+        self.alpha[fn_name] = min(max(self.alpha[fn_name], 0.1), 0.9)
+
+
+    def select_arch(self, ratio_dict):
+        return random.choices(
+            population=list(ratio_dict.keys()),
+            weights=list(ratio_dict.values())
+        )[0]
 
 
     def record_arch_perf(self, arch, total_time):
@@ -169,6 +133,6 @@ class TailRatioScheduler:
     def get_metrics(self):
         return {
             "R_t": {k: round(v, 4) for k, v in self.R_t.items()},
-            "alpha": round(self.alpha, 4),
+            "alpha": {k: round(v, 4) for k, v in self.alpha.items()},
             "arch_ratios": self.arch_ratios
         }
