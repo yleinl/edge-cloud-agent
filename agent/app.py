@@ -88,6 +88,7 @@ def entry():
         "fn_name": fn_name,
         "payload": payload,
         "deadline": deadline,
+        "arch": arch,
         "hop": hop
     }
 
@@ -214,7 +215,7 @@ def schedule():
     func_name = data.get("fn_name", "hello")
     payload = data.get("payload", {})
 
-    arch = config_manager.get_architecture()
+    arch = data.get("arch", config_manager.get_architecture())
     node_role = self_node.get("role")
     node_zone = self_node.get("zone")
     res = None
