@@ -95,8 +95,8 @@ class TailRatioScheduler:
         R_final = self.R_t[fn_name] / 100
 
         # Step 6: learn the architecture ratio
-        centralized = R_final * (1 - self.alpha)
-        federated = R_final * self.alpha
+        centralized = R_final * self.alpha
+        federated = R_final * (1 - self.alpha)
         decentralized = 1 - R_final
 
         self.arch_ratios[fn_name] = {
