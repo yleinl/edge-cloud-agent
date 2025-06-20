@@ -18,13 +18,18 @@ class TailRatioScheduler:
         sample_interval=10
     ):
         self.residual = 0.0
-        self.arch_ratios = {"centralized": 0.0, "federated": 0.0, "decentralized": 1.0}
+        self.alpha = alpha
+        self.arch_ratios: Dict[str, Dict[str, float]] = defaultdict(lambda: {
+            "centralized": 0.0,
+            "federated": 0.0,
+            "decentralized": 1.0
+        })
+
         self.decay = decay
         self.window = window
         self.c_soft = c_soft
         self.c_hard = c_hard
         self.c_in = c_in
-        self.alpha = alpha
         self.min_samples = min_samples
         self.sample_interval = sample_interval
 
@@ -69,32 +74,61 @@ class TailRatioScheduler:
             weight_hist = [self.decay ** i for i in range(len(hist))]
             r_prime = np.average(hist, weights=weight_hist)
 
-            if r_prime < self.c_soft:
-                r_t = 0
-            elif r_prime > self.c_hard:
-                r_t = 100
-            else:
-                r_t = 100 * (r_prime - self.c_soft) / (self.c_hard - self.c_soft)
+            # if r_prime < self.c_soft:
+            #     r_t = 0
+            # elif r_prime > self.c_hard:
+            #     r_t = 100
+            # else:
+            #     r_t = 100 * (r_prime - self.c_soft) / (self.c_hard - self.c_soft)
 
-            r_t_list.append((arch, r_t))
+            r_t_list.append((arch, r_prime))
 
         # Step 5: weighted average r_t
-        r_t_avg = sum(r_t * weights[arch] for arch, r_t in r_t_list)
-        self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
-        R_final = self.R_t[fn_name] / 100
+        r_prime_avg = sum(r_t * weights[arch] for arch, r_t in r_t_list)
+        # if r_prime_avg < self.c_soft:
+        #     r_t_avg = 0
+        # elif r_prime_avg > self.c_hard:
+        #     r_t_avg = 100
+        # else:
+        #     r_t_avg = 100 * (r_prime_avg - self.c_soft) / (self.c_hard - self.c_soft)
+        # self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
+        # R_final = self.R_t[fn_name] / 100
+        #
+        # # Step 6: learn the architecture ratio
+        # centralized = R_final
+        # federated = (1 - R_final) * self.alpha
+        # decentralized = (1 - R_final) * (1 - self.alpha)
+        if r_prime_avg <= self.c_soft:
+            r_t_avg = 0
+            centralized = 0.0
+            federated = 0.0
+            decentralized = 1.0
 
-        # Step 6: learn the architecture ratio
-        centralized = R_final
-        federated = (1 - R_final) * self.alpha
-        decentralized = (1 - R_final) * (1 - self.alpha)
+        elif r_prime_avg <= self.c_hard:
+            r_t_avg = 100 * (r_prime_avg - self.c_soft) / (self.c_hard - self.c_soft)
+            self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
+            R_final = self.R_t[fn_name] / 100
 
-        self.arch_ratios = {
+            centralized = 0.0
+            federated = R_final
+            decentralized = 1.0 - R_final
+        else:
+            r_t_avg = 100 * (r_prime_avg - self.c_soft) / (self.c_hard - self.c_soft)
+            self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
+            R_final = self.R_t[fn_name] / 100
+
+            centralized = R_final
+            remaining = 1.0 - R_final
+            federated = remaining * self.alpha
+            decentralized = remaining * (1 - self.alpha)
+
+        self.arch_ratios[fn_name] = {
             "decentralized": round(decentralized, 3),
             "federated": round(federated, 3),
             "centralized": round(centralized, 3)
         }
 
-        return self.arch_ratios
+        return self.arch_ratios[fn_name]
 
     def select_arch(self, ratio_dict):
         return random.choices(
