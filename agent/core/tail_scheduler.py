@@ -2,7 +2,7 @@ import numpy as np
 import random
 import time
 from collections import defaultdict, deque
-from typing import Dict
+from typing import Dict, Tuple
 
 
 class TailRatioScheduler:
@@ -10,8 +10,8 @@ class TailRatioScheduler:
         self,
         decay=0.9,
         window=10,
-        c_soft=1.5,
-        c_hard=2.0,
+        c_soft=1.6,
+        c_hard=2.1,
         c_in=0.6,
         alpha=0.6,
         min_samples=5,
@@ -28,50 +28,59 @@ class TailRatioScheduler:
         self.min_samples = min_samples
         self.sample_interval = sample_interval
 
-        self.last_sample_time = defaultdict(lambda: 0)
-        self.last_sample_time: Dict[str, float] = defaultdict(lambda: 0.0)
-        self.r_history: Dict[str, deque] = defaultdict(deque)  # fn_name -> r_l(t)
+        # self.last_sample_time: Dict[str, float] = defaultdict(lambda: 0.0)
+        self.last_sample_time: Dict[Tuple[str, str], float] = defaultdict(lambda: 0.0)
+        self.r_history: Dict[str, Dict[str, deque]] = defaultdict(lambda: defaultdict(deque)) # fn_name -> r_l(t)
+        # self.r_history: Dict[str, deque] = defaultdict(deque)
         self.R_t: Dict[str, float] = defaultdict(lambda: 1.0)   # fn_name -> smoothed R_t(t)
         self.arch_perf = {
+            "centralized": deque(maxlen=100),
             "federated": deque(maxlen=100),
             "decentralized": deque(maxlen=100)
         }
 
-    def update_ratios(self, fn_name, durations):
+    def update_ratios(self, fn_name, durations_dict: Dict[str, list]):
         now = time.time()
+        r_t_list = []
+        weights = {
+            "centralized": 0,
+            "federated": 0,
+            "decentralized": 1
+        }
 
-        # Step 1: sample a new r_l(t)
-        if now - self.last_sample_time[fn_name] >= self.sample_interval:
-            if len(durations) >= self.min_samples:
+        for arch in ["centralized", "federated", "decentralized"]:
+            durations = durations_dict.get(arch, [])
+            if now - self.last_sample_time[(fn_name, arch)] >= self.sample_interval and len(
+                    durations) >= self.min_samples:
                 p95 = np.percentile(durations, 95)
                 p50 = np.percentile(durations, 50)
                 r_l = p95 / p50 if p50 else float("inf")
 
-                hist = self.r_history[fn_name]
+                hist = self.r_history[fn_name][arch]
                 hist.appendleft(r_l)
                 if len(hist) > self.window:
                     hist.pop()
-                self.last_sample_time[fn_name] = time.time()
+                self.last_sample_time[(fn_name, arch)] = now
 
-        # Step 2: return decentralized if cold start
-        if len(self.r_history[fn_name]) == 0:
-            return {"decentralized": 1.0, "federated": 0.0, "centralized": 0.0}
+            hist = self.r_history[fn_name][arch]
+            if not hist:
+                continue
 
-        # Step 3: exponentially weighted average
-        hist = self.r_history[fn_name]
-        weights = [self.decay ** i for i in range(len(hist))]
-        r_prime = np.average(hist, weights=weights)
+            weight_hist = [self.decay ** i for i in range(len(hist))]
+            r_prime = np.average(hist, weights=weight_hist)
 
-        # Step 4: map r_t with the soft and hard threshold
-        if r_prime < self.c_soft:
-            r_t = 0
-        elif r_prime > self.c_hard:
-            r_t = 100
-        else:
-            r_t = 100 * (r_prime - self.c_soft) / (self.c_hard - self.c_soft)
+            if r_prime < self.c_soft:
+                r_t = 0
+            elif r_prime > self.c_hard:
+                r_t = 100
+            else:
+                r_t = 100 * (r_prime - self.c_soft) / (self.c_hard - self.c_soft)
 
-        # Step 5: smooth R_t(t)
-        self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t * (1 - self.c_in)
+            r_t_list.append((arch, r_t))
+
+        # Step 5: weighted average r_t
+        r_t_avg = sum(r_t * weights[arch] for arch, r_t in r_t_list)
+        self.R_t[fn_name] = self.R_t[fn_name] * self.c_in + r_t_avg * (1 - self.c_in)
         R_final = self.R_t[fn_name] / 100
 
         # Step 6: learn the architecture ratio

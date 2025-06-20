@@ -57,8 +57,6 @@ def reload_config():
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
 @app.route("/entry", methods=["POST"])
 def entry():
     total_start = time.time()
@@ -78,9 +76,14 @@ def entry():
     node_zone = self_node.get("zone")
     arch = data.get("arch", config_manager.get_architecture())
 
+    # === Dynamic Architecture Selection ===
     if arch == "dynamic":
-        durations = get_recent_total_times(fn_name)
-        arch_ratios = tail_scheduler.update_ratios(fn_name, durations)
+        durations_dict = {
+            "centralized": get_recent_total_times(fn_name + "_centralized"),
+            "federated": get_recent_total_times(fn_name + "_federated"),
+            "decentralized": get_recent_total_times(fn_name + "_decentralized")
+        }
+        arch_ratios = tail_scheduler.update_ratios(fn_name, durations_dict)
         arch = tail_scheduler.select_arch(arch_ratios)
 
     request_obj = {
@@ -106,14 +109,9 @@ def entry():
         # === Federated ===
         elif arch == "federated":
             schedulers = [n for n in topo.values() if n["zone"] == node_zone and n["role"] == "edge-controller"]
-
             if node_role == "edge-controller":
-                self_zone = self_node.get("zone")
-                # self_id = self_node.get("id")
-                candidates = [
-                    node for node in topo.values()
-                    if node["role"] == "cloud-controller" or node["role"] == "edge-controller"
-                ]
+                self_zone = node_zone
+                candidates = [n for n in topo.values() if n["role"] in ("cloud-controller", "edge-controller")]
                 if psutil.cpu_percent(interval=0.1) / 100 <= 0.8 and psutil.getloadavg()[0] <= 2:
                     target = self_node
                 else:
@@ -121,7 +119,7 @@ def entry():
                 if target["zone"] != self_zone:
                     url = f"http://{target['address']}:31113/entry"
                     start = time.time()
-                    request_obj["hop"] = request_obj.get("hop", 0) + 1
+                    request_obj["hop"] += 1
                     res = requests.post(url, json=request_obj, timeout=60)
                     result = {
                         "message": f"Offloaded to zone {target['zone']}",
@@ -129,18 +127,14 @@ def entry():
                     }
                     status = res.status_code
                     duration = time.time() - start
-                    duration = duration * (1 + alpha * res.json().get("hop", 0))
+                    duration *= 1 + alpha * res.json().get("hop", 0)
                     record_response_time(target["zone"], fn_name, duration)
                 else:
                     start_time = time.time()
-                    schedule_targets = [
-                        n for n in topo.values()
-                        if n["zone"] == node_zone
-                    ]
+                    schedule_targets = [n for n in topo.values() if n["zone"] == node_zone]
                     target = select_target(schedule_targets, fn_name, response_log)
                     result = invoke_remote_faas(fn_name, payload, target)
-                    end_time = time.time()
-                    duration = end_time - start_time
+                    duration = time.time() - start_time
                     record_response_time(self_zone, fn_name, duration)
             elif node_role == "cloud-controller":
                 result = invoke_local_faas(fn_name, payload)
@@ -154,50 +148,47 @@ def entry():
 
         # === Decentralized ===
         elif arch == "decentralized":
-            candidates = [n for n in topo.values()]
+            candidates = list(topo.values())
             if psutil.cpu_percent(interval=0.1) / 100 < 0.7 and psutil.getloadavg()[0] < 2:
                 target = self_node
             else:
                 target = select_target(candidates, fn_name, response_log)
+
             start = time.time()
             if target["id"] != self_node["id"]:
                 url = f"http://{target['address']}:31113/entry"
-                # result, status = invoke_remote_faas(fn_name, payload, target)
-                request_obj["hop"] = request_obj.get("hop", 0) + 1
+                request_obj["hop"] += 1
                 res = requests.post(url, json=request_obj, timeout=60)
-
                 result = {
                     "message": f"Offloaded to node {target['id']}",
                     "response": res.json()
                 }
                 duration = time.time() - start
-                duration = duration * (1 + alpha * res.json().get("hop", 0))
+                duration *= 1 + alpha * res.json().get("hop", 0)
             else:
                 result = invoke_local_faas(fn_name, payload)
                 duration = time.time() - start
             record_response_time(target["id"], fn_name, duration)
+
         else:
             return jsonify({"error": f"Unsupported architecture: {arch}"}), 400
 
-        # ✅ Deadline check for time critical task
+        # # Deadline check
         now = time.time()
-        if deadline and now > float(deadline):
-            return jsonify({"error": "Deadline exceeded"}), 408
+        # if deadline and now > float(deadline):
+        #     return jsonify({"error": "Deadline exceeded"}), 408
 
         result["total_time"] = round(time.time() - total_start, 6)
         result["hop"] = hop
 
-        now = time.time()
-        total_time_log[fn_name].append((now, result["total_time"]))
-        while total_time_log[fn_name] and now - total_time_log[fn_name][0][0] > TOTAL_TIME_WINDOW:
-            total_time_log[fn_name].popleft()
+        # record arch related total time
+        total_time_log[fn_name + "_" + arch].append((now, result["total_time"]))
+        while total_time_log[fn_name + "_" + arch] and now - total_time_log[fn_name + "_" + arch][0][0] > TOTAL_TIME_WINDOW:
+            total_time_log[fn_name + "_" + arch].popleft()
 
-        durations = get_recent_total_times(fn_name)
-        arch_ratios = tail_scheduler.update_ratios(fn_name, durations)
-        used_arch = arch
-
-        tail_scheduler.record_arch_perf(used_arch, result["total_time"])
+        tail_scheduler.record_arch_perf(arch, result["total_time"])
         tail_scheduler.update_alpha()
+
         return jsonify(result), status
 
     except Exception as e:
