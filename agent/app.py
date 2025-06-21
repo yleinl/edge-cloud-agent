@@ -187,7 +187,7 @@ def entry():
             total_time_log[fn_name + "_" + arch].popleft()
 
         tail_scheduler.record_arch_perf(arch, result["total_time"])
-        tail_scheduler.update_alpha(fn_name)
+        # tail_scheduler.update_alpha(fn_name)
 
         return jsonify(result), status
 

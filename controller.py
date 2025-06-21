@@ -12,6 +12,7 @@ nodes = [
     # "localhost"
 ]
 
+
 def reload_architecture(arch):
     for node in nodes:
         url = f"http://{node}:31113/reload"
