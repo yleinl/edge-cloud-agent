@@ -181,6 +181,7 @@ def entry():
         result["total_time"] = round(time.time() - total_start, 6)
         result["hop"] = hop
 
+        result["architecture"] = arch
         # record arch related total time
         total_time_log[fn_name + "_" + arch].append((now, result["total_time"]))
         while total_time_log[fn_name + "_" + arch] and now - total_time_log[fn_name + "_" + arch][0][0] > TOTAL_TIME_WINDOW:

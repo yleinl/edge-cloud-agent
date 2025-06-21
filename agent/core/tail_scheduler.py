@@ -33,6 +33,8 @@ class TailRatioScheduler:
         self.min_samples = min_samples
         self.sample_interval = sample_interval
         self.prev_r_l = defaultdict(lambda: 1.0)
+        self.update_qps_log = defaultdict(lambda: deque(maxlen=2))
+        self.update_times = defaultdict(lambda: deque())
 
         # self.last_sample_time: Dict[str, float] = defaultdict(lambda: 0.0)
         self.last_sample_time: Dict[Tuple[str, str], float] = defaultdict(lambda: 0.0)
@@ -48,6 +50,7 @@ class TailRatioScheduler:
     def update_ratios(self, fn_name, durations_dict: Dict[str, list]):
         now = time.time()
         r_prime_map = {}
+        self.update_times[fn_name].append(now)
 
         for arch in ["centralized", "federated", "decentralized"]:
             durations = durations_dict.get(arch, [])
@@ -61,6 +64,9 @@ class TailRatioScheduler:
                 # hist.appendleft(r_l)
                 # if len(hist) > self.window:
                 #     hist.pop()
+                qps_now = len(self.update_times[fn_name]) / self.sample_interval
+                self.update_qps_log[fn_name].append(qps_now)
+                self.update_times[fn_name].clear()
                 self.last_sample_time[(fn_name, arch)] = now
             elif len(durations) <= self.min_samples:
                 r_l = 1.0
@@ -80,7 +86,6 @@ class TailRatioScheduler:
 
         dec_r = r_prime_map.get("decentralized", self.c_soft)
         fed_weight = map_r_to_weight(dec_r)
-        print(dec_r)
         fed_r = r_prime_map.get("federated", self.c_soft)
         cen_weight = map_r_to_weight(fed_r)
 
@@ -88,11 +93,41 @@ class TailRatioScheduler:
         federated = round(fed_weight - centralized, 3)
         decentralized = round(1 - federated - centralized, 3)
 
-        self.arch_ratios[fn_name] = {
+        new_ratios = {
             "decentralized": decentralized,
             "federated": federated,
             "centralized": centralized
         }
+
+        old_ratios = self.arch_ratios.get(fn_name, {
+            "decentralized": 1.0, "federated": 0.0, "centralized": 0.0
+        })
+
+        # alpha = 1
+
+        qps_log = list(self.update_qps_log[fn_name])
+        if len(qps_log) < 2:
+            alpha = 1
+        else:
+            delta_qps = abs(qps_log[-1] - qps_log[-2])
+            alpha = 0.1 + 0.8 * (1 / (1 + np.exp(-0.5 * (delta_qps - 5))))
+
+        smoothed_ratios = {
+            arch: round((1 - alpha) * old_ratios[arch] + alpha * new_ratios[arch], 3)
+            for arch in new_ratios
+        }
+
+        total = sum(smoothed_ratios.values())
+        self.arch_ratios[fn_name] = {
+            arch: round(smoothed_ratios[arch] / total, 3)
+            for arch in smoothed_ratios
+        }
+
+        # self.arch_ratios[fn_name] = {
+        #     "decentralized": decentralized,
+        #     "federated": federated,
+        #     "centralized": centralized
+        # }
 
         return self.arch_ratios[fn_name]
 
