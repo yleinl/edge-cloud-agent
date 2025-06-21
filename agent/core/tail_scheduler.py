@@ -10,12 +10,12 @@ class TailRatioScheduler:
         self,
         decay=0.9,
         window=10,
-        c_soft=1.6,
+        c_soft=1.5,
         c_hard=2.1,
         c_in=0.6,
         alpha=0.1,
-        min_samples=20,
-        sample_interval=10
+        min_samples=10,
+        sample_interval=2
     ):
         self.residual: Dict[str, float] = defaultdict(lambda: 0.0)
         self.alpha: Dict[str, float] = defaultdict(lambda: alpha)
@@ -32,6 +32,7 @@ class TailRatioScheduler:
         self.c_in = c_in
         self.min_samples = min_samples
         self.sample_interval = sample_interval
+        self.prev_r_l = defaultdict(lambda: 1.0)
 
         # self.last_sample_time: Dict[str, float] = defaultdict(lambda: 0.0)
         self.last_sample_time: Dict[Tuple[str, str], float] = defaultdict(lambda: 0.0)
@@ -55,21 +56,20 @@ class TailRatioScheduler:
                 p95 = np.percentile(durations, 95)
                 p50 = np.percentile(durations, 50)
                 r_l = p95 / p50 if p50 else float("inf")
-
-                hist = self.r_history[fn_name][arch]
-                hist.appendleft(r_l)
-                if len(hist) > self.window:
-                    hist.pop()
+                self.prev_r_l[(fn_name, arch)] = r_l
+                # hist = self.r_history[fn_name][arch]
+                # hist.appendleft(r_l)
+                # if len(hist) > self.window:
+                #     hist.pop()
                 self.last_sample_time[(fn_name, arch)] = now
-
-            hist = self.r_history[fn_name][arch]
-            if not hist or len(hist) < self.min_samples:
-                r_prime_map[arch] = 1.0
-                continue
-
-            weight_hist = [self.decay ** i for i in range(len(hist))]
-            r_prime = np.average(hist, weights=weight_hist)
-            r_prime_map[arch] = r_prime
+            elif len(durations) <= self.min_samples:
+                r_l = 1.0
+            else:
+                r_l = self.prev_r_l[(fn_name, arch)]
+            # hist = self.r_history[fn_name][arch]
+            # weight_hist = [self.decay ** i for i in range(len(hist))]
+            # r_prime = np.average(hist, weights=weight_hist)
+            r_prime_map[arch] = r_l
 
         def map_r_to_weight(r):
             if r < self.c_soft:
@@ -80,7 +80,7 @@ class TailRatioScheduler:
 
         dec_r = r_prime_map.get("decentralized", self.c_soft)
         fed_weight = map_r_to_weight(dec_r)
-
+        print(dec_r)
         fed_r = r_prime_map.get("federated", self.c_soft)
         cen_weight = map_r_to_weight(fed_r)
 
