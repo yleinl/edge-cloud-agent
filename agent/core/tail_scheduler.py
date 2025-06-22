@@ -11,7 +11,7 @@ class TailRatioScheduler:
         decay=0.9,
         window=10,
         c_soft=1.5,
-        c_hard=2.1,
+        c_hard=2.0,
         c_in=0.6,
         alpha=0.1,
         min_samples=10,

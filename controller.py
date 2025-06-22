@@ -9,7 +9,7 @@ nodes = [
     "yl-03.lab.uvalight.net",
     "yl-04.lab.uvalight.net",
     "yl-06.lab.uvalight.net",
-    "localhost"
+    # "localhost"
 ]
 
 
