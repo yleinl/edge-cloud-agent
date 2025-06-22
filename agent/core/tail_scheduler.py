@@ -7,15 +7,15 @@ from typing import Dict, Tuple
 
 class TailRatioScheduler:
     def __init__(
-        self,
-        decay=0.9,
-        window=10,
-        c_soft=1.5,
-        c_hard=2.0,
-        c_in=0.6,
-        alpha=0.1,
-        min_samples=10,
-        sample_interval=2
+            self,
+            decay=0.9,
+            window=10,
+            c_soft=1.4,
+            c_hard=2.4,
+            c_in=0.6,
+            alpha=0.1,
+            min_samples=10,
+            sample_interval=2
     ):
         self.residual: Dict[str, float] = defaultdict(lambda: 0.0)
         self.alpha: Dict[str, float] = defaultdict(lambda: alpha)
@@ -38,9 +38,9 @@ class TailRatioScheduler:
 
         # self.last_sample_time: Dict[str, float] = defaultdict(lambda: 0.0)
         self.last_sample_time: Dict[Tuple[str, str], float] = defaultdict(lambda: 0.0)
-        self.r_history: Dict[str, Dict[str, deque]] = defaultdict(lambda: defaultdict(deque)) # fn_name -> r_l(t)
+        self.r_history: Dict[str, Dict[str, deque]] = defaultdict(lambda: defaultdict(deque))  # fn_name -> r_l(t)
         # self.r_history: Dict[str, deque] = defaultdict(deque)
-        self.R_t: Dict[str, float] = defaultdict(lambda: 1.0)   # fn_name -> smoothed R_t(t)
+        self.R_t: Dict[str, float] = defaultdict(lambda: 1.0)  # fn_name -> smoothed R_t(t)
         self.arch_perf = {
             "centralized": deque(maxlen=100),
             "federated": deque(maxlen=100),
@@ -123,39 +123,13 @@ class TailRatioScheduler:
             for arch in smoothed_ratios
         }
 
-        # self.arch_ratios[fn_name] = {
-        #     "decentralized": decentralized,
-        #     "federated": federated,
-        #     "centralized": centralized
-        # }
-
         return self.arch_ratios[fn_name]
-
-    # def update_alpha(self, fn_name):
-    #     f_times = list(self.arch_perf["federated"])
-    #     c_times = list(self.arch_perf["centralized"])
-    #     if len(f_times) < 5 or len(c_times) < 5:
-    #         return
-    #
-    #     f_avg = np.mean(f_times)
-    #     c_avg = np.mean(c_times)
-    #
-    #     eps_t = (f_avg - c_avg) / c_avg if c_avg > 0 else 0
-    #     eps_t = np.clip(eps_t, -2.0, 2.0)
-    #     gamma = 0.8
-    #
-    #     self.residual[fn_name] = gamma * self.residual[fn_name] + (1 - gamma) * eps_t
-    #
-    #     self.alpha[fn_name] += 0.05 * self.residual[fn_name]
-    #     self.alpha[fn_name] = min(max(self.alpha[fn_name], 0.1), 0.9)
-
 
     def select_arch(self, ratio_dict):
         return random.choices(
             population=list(ratio_dict.keys()),
             weights=list(ratio_dict.values())
         )[0]
-
 
     def record_arch_perf(self, arch, total_time):
         if arch in self.arch_perf:
@@ -167,3 +141,7 @@ class TailRatioScheduler:
             # "alpha": {k: round(v, 4) for k, v in self.alpha.items()},
             "arch_ratios": self.arch_ratios
         }
+
+    def update(self, c_soft, c_hard):
+        self.c_soft = c_soft
+        self.c_hard = c_hard

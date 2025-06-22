@@ -8,17 +8,17 @@
     # delay matrix
     delay_matrix:
       edge1:
-        edge1: 1
-        edge2: 10
-        cloud: 40
-      edge2:
         edge1: 10
-        edge2: 1
-        cloud: 40
+        edge2: 20
+        cloud: 60
+      edge2:
+        edge1: 20
+        edge2: 10
+        cloud: 60
       cloud:
-        edge1: 40
-        edge2: 40
-        cloud: 1
+        edge1: 60
+        edge2: 60
+        cloud: 2
 
     all_hosts:
       yl-01.lab.uvalight.net: { group: edge1 }

@@ -112,10 +112,10 @@ def entry():
             if node_role == "edge-controller":
                 self_zone = node_zone
                 candidates = [n for n in topo.values() if n["role"] in ("cloud-controller", "edge-controller")]
-                if psutil.cpu_percent(interval=0.1) / 100 <= 0.8 and psutil.getloadavg()[0] <= 2:
-                    target = self_node
-                else:
-                    target = select_zone(candidates, fn_name, response_log)
+                # if psutil.cpu_percent(interval=0.1) / 100 <= 0.7 and psutil.getloadavg()[0] <= 2:
+                #     target = self_node
+                # else:
+                target = select_zone(candidates, fn_name, response_log)
                 if target["zone"] != self_zone:
                     url = f"http://{target['address']}:31113/entry"
                     start = time.time()
@@ -149,10 +149,10 @@ def entry():
         # === Decentralized ===
         elif arch == "decentralized":
             candidates = list(topo.values())
-            if psutil.cpu_percent(interval=0.1) / 100 < 0.7 and psutil.getloadavg()[0] < 2:
-                target = self_node
-            else:
-                target = select_target(candidates, fn_name, response_log)
+            # if psutil.cpu_percent(interval=0.1) / 100 <= 0.7 and psutil.getloadavg()[0] < 2:
+            #     target = self_node
+            # else:
+            target = select_target(candidates, fn_name, response_log)
 
             start = time.time()
             if target["id"] != self_node["id"]:
@@ -283,6 +283,19 @@ def durations():
             "decentralized": get_recent_total_times(fn_name + "_decentralized")
         }
         return jsonify(durations_dict), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/update", methods=["POST"])
+def durations():
+    try:
+
+        data = request.get_json()
+        soft = data.get("soft", 1.5)
+        hard = data.get("hard", 2.1)
+        tail_scheduler.update(soft, hard)
+        return 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
