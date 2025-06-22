@@ -287,10 +287,9 @@ def durations():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/update", methods=["POST"])
-def durations():
+@app.route("/update_threshold", methods=["POST"])
+def update_threshold():
     try:
-
         data = request.get_json()
         soft = data.get("soft", 1.5)
         hard = data.get("hard", 2.1)
