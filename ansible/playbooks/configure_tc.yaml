@@ -18,7 +18,7 @@
       cloud:
         edge1: 60
         edge2: 60
-        cloud: 2
+        cloud: 1
 
     all_hosts:
       yl-01.lab.uvalight.net: { group: edge1 }
