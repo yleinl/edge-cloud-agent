@@ -12,7 +12,7 @@ class TailRatioScheduler:
             window=10,
             c_soft_d2f=1.5,
             c_hard_d2f=2.5,
-            c_soft_f2c=1.6,
+            c_soft_f2c=1.7,
             c_hard_f2c=2.7,
             alpha=0.1,
             min_samples=10,
@@ -31,10 +31,10 @@ class TailRatioScheduler:
         # self.c_soft = c_soft
         # self.c_hard = c_hard
 
-        self.c_soft_d2f = c_soft_d2f,
-        self.c_hard_d2f = c_hard_d2f,
-        self. c_soft_f2c = c_soft_f2c,
-        self.c_hard_f2c = c_hard_f2c,
+        self.c_soft_d2f = c_soft_d2f
+        self.c_hard_d2f = c_hard_d2f
+        self.c_soft_f2c = c_soft_f2c
+        self.c_hard_f2c = c_hard_f2c
         self.min_samples = min_samples
         self.sample_interval = sample_interval
         self.prev_r_l = defaultdict(lambda: 1.0)
@@ -56,13 +56,6 @@ class TailRatioScheduler:
         now = time.time()
         r_prime_map = {}
         self.update_times[fn_name].append(now)
-        total_samples = sum(len(durations_dict.get(arch, [])) for arch in ["centralized", "federated", "decentralized"])
-        if total_samples <= 500:
-            return {
-                "decentralized": 1.0,
-                "federated": 0.0,
-                "centralized": 0.0
-            }
         for arch in ["centralized", "federated", "decentralized"]:
             durations = durations_dict.get(arch, [])
             if now - self.last_sample_time[(fn_name, arch)] >= self.sample_interval and len(
@@ -96,9 +89,21 @@ class TailRatioScheduler:
             return (r - c_soft) / (c_hard - c_soft)
 
         dec_r = r_prime_map.get("decentralized", self.c_soft_d2f)
-        fed_weight = map_r_to_weight(dec_r, self.c_soft_d2f, self.c_hard_d2f)
-        fed_r = r_prime_map.get("federated", self.c_soft_f2c)
-        cen_weight = map_r_to_weight(fed_r, self.c_soft_f2c, self.c_hard_f2c)
+
+        qps_log = self.update_qps_log[fn_name]
+        qps_now = qps_log[-1] if qps_log else 0
+
+        qps_threshold_fed = 4
+        if qps_now >= qps_threshold_fed:
+            fed_weight = map_r_to_weight(dec_r, self.c_soft_d2f, self.c_hard_d2f)
+            qps_threshold_cen = 8
+            if qps_now >= qps_threshold_cen:
+                cen_weight = map_r_to_weight(fed_weight, self.c_soft_f2c, self.c_hard_f2c)
+            else:
+                cen_weight = 0
+        else:
+            fed_weight = 0
+            cen_weight = 0
 
         centralized = round(cen_weight * fed_weight, 3)
         federated = round(fed_weight - centralized, 3)
