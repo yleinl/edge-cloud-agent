@@ -114,7 +114,7 @@ def entry():
             if node_role == "edge-controller":
                 self_zone = node_zone
                 candidates = [n for n in topo.values() if n["role"] in ("cloud-controller", "edge-controller")]
-                if hop >= 2:
+                if hop >= 2 or psutil.getloadavg()[0] <= 2:
                     target = self_node
                 else:
                     target = select_zone(candidates, fn_name, response_log)
@@ -151,7 +151,7 @@ def entry():
         # === Decentralized ===
         elif arch == "decentralized":
             candidates = list(topo.values())
-            if hop >= 2:
+            if hop >= 2 or psutil.getloadavg()[0] <= 2:
                 target = self_node
             else:
                 target = select_target(candidates, fn_name, response_log)
