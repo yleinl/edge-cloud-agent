@@ -293,9 +293,11 @@ def durations():
 def update_threshold():
     try:
         data = request.get_json()
-        soft = data.get("soft", 1.5)
-        hard = data.get("hard", 2.1)
-        tail_scheduler.update(soft, hard)
+        soft_d2f = data.get("soft_d2f", 1.3)
+        hard_d2f = data.get("hard_d2f", 1.7)
+        soft_f2c = data.get("soft_f2c", 1.6)
+        hard_f2c = data.get("hard_f2c", 2.7)
+        tail_scheduler.update(soft_d2f, hard_d2f, soft_f2c, hard_f2c)
         return 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

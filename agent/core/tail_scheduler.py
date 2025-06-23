@@ -10,9 +10,10 @@ class TailRatioScheduler:
             self,
             decay=0.9,
             window=10,
-            c_soft=1.5,
-            c_hard=2.5,
-            c_in=0.6,
+            c_soft_d2f=1.5,
+            c_hard_d2f=2.5,
+            c_soft_f2c=1.6,
+            c_hard_f2c=2.7,
             alpha=0.1,
             min_samples=10,
             sample_interval=2
@@ -27,9 +28,13 @@ class TailRatioScheduler:
 
         self.decay = decay
         self.window = window
-        self.c_soft = c_soft
-        self.c_hard = c_hard
-        self.c_in = c_in
+        # self.c_soft = c_soft
+        # self.c_hard = c_hard
+
+        self.c_soft_d2f = c_soft_d2f,
+        self.c_hard_d2f = c_hard_d2f,
+        self. c_soft_f2c = c_soft_f2c,
+        self.c_hard_f2c = c_hard_f2c,
         self.min_samples = min_samples
         self.sample_interval = sample_interval
         self.prev_r_l = defaultdict(lambda: 1.0)
@@ -52,7 +57,7 @@ class TailRatioScheduler:
         r_prime_map = {}
         self.update_times[fn_name].append(now)
         total_samples = sum(len(durations_dict.get(arch, [])) for arch in ["centralized", "federated", "decentralized"])
-        if total_samples < 120:
+        if total_samples <= 500:
             return {
                 "decentralized": 1.0,
                 "federated": 0.0,
@@ -83,17 +88,17 @@ class TailRatioScheduler:
             # r_prime = np.average(hist, weights=weight_hist)
             r_prime_map[arch] = r_l
 
-        def map_r_to_weight(r):
-            if r < self.c_soft:
+        def map_r_to_weight(r, c_soft, c_hard):
+            if r < c_soft:
                 return 0
-            elif r > self.c_hard:
+            elif r > c_hard:
                 return 1
-            return (r - self.c_soft) / (self.c_hard - self.c_soft)
+            return (r - c_soft) / (c_hard - c_soft)
 
-        dec_r = r_prime_map.get("decentralized", self.c_soft)
-        fed_weight = map_r_to_weight(dec_r)
-        fed_r = r_prime_map.get("federated", self.c_soft)
-        cen_weight = map_r_to_weight(fed_r)
+        dec_r = r_prime_map.get("decentralized", self.c_soft_d2f)
+        fed_weight = map_r_to_weight(dec_r, self.c_soft_d2f, self.c_hard_d2f)
+        fed_r = r_prime_map.get("federated", self.c_soft_f2c)
+        cen_weight = map_r_to_weight(fed_r, self.c_soft_f2c, self.c_hard_f2c)
 
         centralized = round(cen_weight * fed_weight, 3)
         federated = round(fed_weight - centralized, 3)
@@ -148,6 +153,8 @@ class TailRatioScheduler:
             "arch_ratios": self.arch_ratios
         }
 
-    def update(self, c_soft, c_hard):
-        self.c_soft = c_soft
-        self.c_hard = c_hard
+    def update(self, c_soft_d2f, c_hard_d2f, c_soft_f2c, c_hard_f2c):
+        self.c_soft_d2f = c_soft_d2f
+        self.c_hard_d2f = c_hard_d2f
+        self.c_soft_f2c = c_soft_f2c
+        self.c_hard_f2c = c_hard_f2c
