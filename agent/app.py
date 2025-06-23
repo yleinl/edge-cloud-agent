@@ -57,6 +57,8 @@ def reload_config():
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
 @app.route("/entry", methods=["POST"])
 def entry():
     total_start = time.time()
@@ -112,14 +114,14 @@ def entry():
             if node_role == "edge-controller":
                 self_zone = node_zone
                 candidates = [n for n in topo.values() if n["role"] in ("cloud-controller", "edge-controller")]
-                if hop >= 3:
+                if hop >= 2:
                     target = self_node
                 else:
                     target = select_zone(candidates, fn_name, response_log)
                 if target["zone"] != self_zone:
                     url = f"http://{target['address']}:31113/entry"
                     start = time.time()
-                    request_obj["hop"] += 1
+                    request_obj["hop"] = hop + 1
                     res = requests.post(url, json=request_obj, timeout=60)
                     result = {
                         "message": f"Offloaded to zone {target['zone']}",
@@ -149,7 +151,7 @@ def entry():
         # === Decentralized ===
         elif arch == "decentralized":
             candidates = list(topo.values())
-            if hop >= 3:
+            if hop >= 2:
                 target = self_node
             else:
                 target = select_target(candidates, fn_name, response_log)
@@ -157,7 +159,7 @@ def entry():
             start = time.time()
             if target["id"] != self_node["id"]:
                 url = f"http://{target['address']}:31113/entry"
-                request_obj["hop"] += 1
+                request_obj["hop"] = hop + 1
                 res = requests.post(url, json=request_obj, timeout=60)
                 result = {
                     "message": f"Offloaded to node {target['id']}",
