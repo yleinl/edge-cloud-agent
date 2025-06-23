@@ -51,7 +51,13 @@ class TailRatioScheduler:
         now = time.time()
         r_prime_map = {}
         self.update_times[fn_name].append(now)
-
+        total_samples = sum(len(durations_dict.get(arch, [])) for arch in ["centralized", "federated", "decentralized"])
+        if total_samples < 120:
+            return {
+                "decentralized": 1.0,
+                "federated": 0.0,
+                "centralized": 0.0
+            }
         for arch in ["centralized", "federated", "decentralized"]:
             durations = durations_dict.get(arch, [])
             if now - self.last_sample_time[(fn_name, arch)] >= self.sample_interval and len(
