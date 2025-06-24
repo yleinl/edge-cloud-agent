@@ -91,11 +91,11 @@ class TailRatioScheduler:
         qps_log = self.update_qps_log[fn_name]
         qps_now = qps_log[-1] if qps_log else 0
 
-        qps_threshold_fed = 1
+        qps_threshold_fed = 0.5
         dec_r = r_prime_map.get("decentralized", self.c_soft_d2f)
         if qps_now >= qps_threshold_fed:
             fed_weight = map_r_to_weight(dec_r, self.c_soft_d2f, self.c_hard_d2f)
-            qps_threshold_cen = 2
+            qps_threshold_cen = 1.2
             if qps_now >= qps_threshold_cen:
                 fed_r = r_prime_map.get("federated", self.c_soft_f2c)
                 cen_weight = map_r_to_weight(fed_r, self.c_soft_f2c, self.c_hard_f2c)
