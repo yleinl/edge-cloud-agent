@@ -3,3 +3,4 @@ functions\template
 *.pyc
 *.json
 *.csv
+*.backup*

@@ -100,12 +100,21 @@ def entry():
     try:
         # === Centralized ===
         if arch == "centralized":
-            schedulers = [n for n in topo.values() if n["role"] == "cloud-controller"]
-            if not schedulers:
-                return jsonify({"error": "No centralized scheduler found"}), 500
-            scheduler = random.choice(schedulers)
-            url = f"http://{scheduler['address']}:31113/schedule"
-            res = requests.post(url, json=request_obj, timeout=60)
+            if node_role == "cloud-controller":
+                available_targets = [n for n in topo.values()]
+                target = select_target(available_targets, fn_name, response_log)
+                start_time = time.time()
+                res = invoke_remote_faas(fn_name, payload, target)
+                end_time = time.time()
+                duration = end_time - start_time
+                record_response_time(target["id"], fn_name, duration)
+            else:
+                schedulers = [n for n in topo.values() if n["role"] == "cloud-controller"]
+                if not schedulers:
+                    return jsonify({"error": "No centralized scheduler found"}), 500
+                scheduler = random.choice(schedulers)
+                url = f"http://{scheduler['address']}:31113/schedule"
+                res = requests.post(url, json=request_obj, timeout=60)
             result, status = res.json(), res.status_code
 
         # === Federated ===
