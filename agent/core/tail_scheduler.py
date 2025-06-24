@@ -12,8 +12,8 @@ class TailRatioScheduler:
             window=10,
             c_soft_d2f=1.5,
             c_hard_d2f=2.5,
-            c_soft_f2c=1.5,
-            c_hard_f2c=2.5,
+            c_soft_f2c=1.7,
+            c_hard_f2c=2.7,
             alpha=0.1,
             min_samples=10,
             sample_interval=2
