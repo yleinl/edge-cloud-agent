@@ -79,6 +79,7 @@ def entry():
     arch = data.get("arch", config_manager.get_architecture())
 
     # === Dynamic Architecture Selection ===
+    tail_start = time.time()
     if arch == "dynamic":
         durations_dict = {
             "centralized": get_recent_total_times(fn_name + "_centralized"),
@@ -87,6 +88,7 @@ def entry():
         }
         arch_ratios = tail_scheduler.update_ratios(fn_name, durations_dict)
         arch = tail_scheduler.select_arch(arch_ratios)
+    tail_time = time.time() - tail_start
 
     request_obj = {
         "tag": tag,
@@ -191,7 +193,7 @@ def entry():
 
         result["total_time"] = round(time.time() - total_start, 6)
         result["hop"] = hop
-
+        result["architecture_time"] = round(tail_time, 6)
         result["architecture"] = arch
         # record arch related total time
         total_time_log[fn_name + "_" + arch].append((now, result["total_time"]))

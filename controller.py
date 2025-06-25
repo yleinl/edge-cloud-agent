@@ -1,7 +1,7 @@
 import requests
 import sys
 import argparse
-
+import time
 # 节点列表
 nodes = [
     "yl-01.lab.uvalight.net",
@@ -28,4 +28,5 @@ def reload_architecture(arch):
 
 if __name__ == "__main__":
     arch = "dynamic"
+    start = time.time()
     reload_architecture(arch)
