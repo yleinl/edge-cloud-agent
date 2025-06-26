@@ -1,1 +1,0 @@
-# determine the architecture based on system status

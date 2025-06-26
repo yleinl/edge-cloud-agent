@@ -2,6 +2,7 @@ import threading
 import time
 import requests
 
+
 class MetricsCache:
     def __init__(self, topo_map, interval=2):
         self.cache = {}  # node_id -> {"cpu": ..., "load0": ..., "timestamp": ...}
