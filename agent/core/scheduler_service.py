@@ -11,7 +11,6 @@ from core.execution_engine import ExecutionEngine
 from core.tail_scheduler import TailRatioScheduler
 from core.target_selector import TargetSelector
 
-
 class SchedulerService:
     """Main service for handling scheduling requests across architectures."""
 
@@ -62,8 +61,8 @@ class SchedulerService:
 
             # Record performance metrics
             self._record_total_time(request_params["fn_name"],
-                                    request_params["arch"],
-                                    result["response"]["total_time"])
+                                  request_params["arch"],
+                                  result["response"]["total_time"])
 
             return result
 
@@ -78,9 +77,9 @@ class SchedulerService:
         request_params = self._extract_request_params(data)
 
         if request_params["arch"] == "centralized":
-            return self._schedule_centralized(request_params)
+            return self._handle_centralized_scheduling(request_params)
         elif request_params["arch"] == "federated":
-            return self._schedule_federated(request_params)
+            return self._handle_federated_scheduling(request_params)
         else:
             return {
                 "response": {"error": "Unsupported scheduling architecture"},
@@ -180,25 +179,77 @@ class SchedulerService:
         self._record_response_time(target["id"], params["fn_name"], duration)
         return {"response": result, "status": 200}
 
-    def _forward_to_scheduler(self, params, role_type):
-        """Forward request to a scheduler of specified role."""
-        topo = self.config_manager.topo_map
-        schedulers = [n for n in topo.values() if n["role"] == role_type]
+    def _handle_centralized_scheduling(self, params):
+        """Handle direct scheduling in centralized architecture."""
+        self_node = self.config_manager.self_node
 
-        if not schedulers:
+        if self_node.get("role") != "cloud-controller":
             return {
-                "response": {"error": f"No {role_type} found"},
+                "response": {"error": "Edge nodes cannot initiate scheduling in centralized architecture"},
+                "status": 403
+            }
+
+        # Select target and execute
+        topo = self.config_manager.topo_map
+        available_targets = list(topo.values())
+        target = self.target_selector.select_target(
+            available_targets, params["fn_name"], self.response_log
+        )
+
+        start_time = time.time()
+        result = self.execution_engine.invoke_remote_faas(
+            params["fn_name"], params["payload"], target
+        )
+        duration = time.time() - start_time
+
+        self._record_response_time(target["id"], params["fn_name"], duration)
+
+        return {
+            "response": {"resp": result.get("resp")},
+            "status": 200
+        }
+
+    def _handle_federated_scheduling(self, params):
+        """Handle direct scheduling in federated architecture."""
+        self_node = self.config_manager.self_node
+        node_role = self_node.get("role")
+        node_zone = self_node.get("zone")
+
+        if node_role != "edge-controller":
+            return {
+                "response": {"error": "Only edge controllers can schedule in federated architecture"},
+                "status": 403
+            }
+
+        # Select targets within the same zone
+        topo = self.config_manager.topo_map
+        available_targets = [
+            n for n in topo.values()
+            if n["zone"] == node_zone
+        ]
+
+        if not available_targets:
+            return {
+                "response": {"error": "No targets available in current zone"},
                 "status": 500
             }
 
-        scheduler = random.choice(schedulers)
-        url = f"http://{scheduler['address']}:31113/schedule"
+        target = self.target_selector.select_target(
+            available_targets, params["fn_name"], self.response_log
+        )
 
-        try:
-            response = requests.post(url, json=params, timeout=60)
-            return {"response": response.json(), "status": response.status_code}
-        except requests.RequestException as e:
-            return {"response": {"error": str(e)}, "status": 500}
+        start_time = time.time()
+        result = self.execution_engine.invoke_remote_faas(
+            params["fn_name"], params["payload"], target
+        )
+        duration = time.time() - start_time
+
+        self._record_response_time(target["id"], params["fn_name"], duration)
+
+        return {
+            "response": {"resp": result.get("resp")},
+            "status": 200
+        }
 
     def _record_response_time(self, node_id, fn_name, duration):
         """Record response time for performance tracking."""
