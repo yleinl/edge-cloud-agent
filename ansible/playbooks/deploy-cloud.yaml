@@ -1,0 +1,66 @@
+# - name: Setup K3s server
+#   hosts: k3s_server
+#   become: yes
+#   roles:
+#     - k3s-server
+
+# - name: Setup K3s worker
+#   hosts: k3s_worker
+#   become: yes
+#   roles:
+#     - k3s-worker
+
+# - name: Deploy OpenFaaS on server
+#   hosts: k3s_server
+#   become: yes
+#   roles:
+#     - faas-netes
+
+
+- name: Install node-exporter and configure Prometheus for faas-netes
+  hosts: k3s_server
+  become: yes
+  vars:
+    prometheus_namespace: openfaas
+    prometheus_configmap: prometheus-config
+    node_exporter_namespace: monitoring
+
+  tasks:
+    - name: Add Prometheus Helm repo
+      shell: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+      args:
+        executable: /bin/bash
+
+    - name: Update Helm repo
+      shell: helm repo update
+      args:
+        executable: /bin/bash
+
+    - name: Install node-exporter as DaemonSet with correct kubeconfig
+      shell: |
+        helm upgrade --install node-exporter prometheus-community/prometheus-node-exporter \
+          --namespace monitoring --create-namespace
+      args:
+        executable: /bin/bash
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+    - name: Patch Prometheus configmap to scrape node-exporter metrics (using yq)
+      shell: |
+        kubectl -n {{ prometheus_namespace }} get configmap {{ prometheus_configmap }} -o json > /tmp/prometheus.json
+
+        yq -i '.data."prometheus.yml" |=
+          . + "\n  - job_name: \"node\"\n    kubernetes_sd_configs:\n      - role: node\n    relabel_configs:\n      - action: labelmap\n        regex: __meta_kubernetes_node_label_(.+)\n      - target_label: __address__\n        replacement: kubernetes.default.svc:443\n      - source_labels: [__meta_kubernetes_node_name]\n        regex: (.+)\n        target_label: __metrics_path__\n        replacement: /api/v1/nodes/${1}/proxy/metrics" ' /tmp/prometheus.json
+
+        kubectl -n {{ prometheus_namespace }} apply -f /tmp/prometheus.json
+      args:
+        executable: /bin/bash
+
+    - name: Restart Prometheus pod to apply changes
+      shell: |
+        POD=$(kubectl -n {{ prometheus_namespace }} get pods -l app=prometheus -o jsonpath="{.items[0].metadata.name}")
+        kubectl -n {{ prometheus_namespace }} delete pod "$POD"
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      args:
+        executable: /bin/bash

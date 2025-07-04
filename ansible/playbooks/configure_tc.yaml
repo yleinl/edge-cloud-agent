@@ -1,0 +1,45 @@
+---
+- name: Apply per-node network delay via tc + netem
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    # delay matrix
+    delay_matrix:
+      edge1:
+        edge1: 10
+        edge2: 20
+        cloud: 60
+      edge2:
+        edge1: 20
+        edge2: 10
+        cloud: 60
+      cloud:
+        edge1: 60
+        edge2: 60
+        cloud: 1
+
+    all_hosts:
+      yl-01.lab.uvalight.net: { group: edge1 }
+      yl-02.lab.uvalight.net: { group: edge1 }
+      yl-03.lab.uvalight.net: { group: edge2 }
+      yl-06.lab.uvalight.net: { group: edge2 }
+      yl-04.lab.uvalight.net: { group: cloud }
+      yl-05.lab.uvalight.net: { group: cloud }
+
+  tasks:
+    - name: Remove previous tc setup script if exists
+      become: true
+      file:
+        path: /tmp/tc_setup.sh
+        state: absent
+
+    - name: Generate tc setup script
+      template:
+        src: templates/tc_setup.sh.j2
+        dest: /tmp/tc_setup.sh
+        mode: 0755
+
+    - name: Run tc setup script
+      shell: /tmp/tc_setup.sh

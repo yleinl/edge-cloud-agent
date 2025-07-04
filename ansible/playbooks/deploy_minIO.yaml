@@ -1,0 +1,74 @@
+---
+- name: Deploy MinIO and upload public image
+  hosts: data
+  vars:
+    minio_user: "yitao"
+    minio_dir: "/home/yitao/minio"
+    data_dir: "/home/yitao/minio/data"
+    access_key: "minioadmin"
+    secret_key: "minioadmin"
+    bucket: "images"
+    object_name: "image.png"
+    image_path: "/home/yitao/{{ object_name }}"
+    mc_path: "/home/yitao/mc"
+    systemd_user_dir: "/home/yitao/.config/systemd/user"
+
+  tasks:
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ minio_user }}"
+        mode: '0755'
+      loop:
+        - "{{ minio_dir }}"
+        - "{{ data_dir }}"
+        - "{{ systemd_user_dir }}"
+
+    - name: Download MinIO binary
+      get_url:
+        url: https://dl.min.io/server/minio/release/linux-amd64/minio
+        dest: "{{ minio_dir }}/minio"
+        mode: '0755'
+
+    - name: Copy MinIO systemd user service
+      template:
+        src: templates/minio.service.j2
+        dest: "{{ systemd_user_dir }}/minio.service"
+
+    - name: Reload systemd --user
+      shell: |
+        export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+        systemctl --user daemon-reexec
+        systemctl --user daemon-reload
+
+    - name: Enable and start MinIO via systemd --user
+      shell: |
+        export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+        systemctl --user enable minio.service
+        systemctl --user restart minio.service
+
+    - name: Copy image to remote
+      copy:
+        src: files/image.png
+        dest: "{{ image_path }}"
+        mode: '0644'
+
+    - name: Download mc client
+      get_url:
+        url: https://dl.min.io/client/mc/release/linux-amd64/mc
+        dest: "{{ mc_path }}"
+        mode: '0755'
+
+    - name: Configure mc alias and upload image
+      shell: |
+        {{ mc_path }} alias set local http://localhost:9000 {{ access_key }} {{ secret_key }}
+        {{ mc_path }} mb -p local/{{ bucket }} || true
+        {{ mc_path }} anonymous set download local/{{ bucket }}
+        {{ mc_path }} cp {{ image_path }} local/{{ bucket }}/{{ object_name }}
+      environment:
+        HOME: "/home/yitao"
+
+    - name: Show public image URL
+      debug:
+        msg: "Public Image URL: http://{{ ansible_host }}:9000/{{ bucket }}/{{ object_name }}"

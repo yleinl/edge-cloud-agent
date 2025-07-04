@@ -1,0 +1,74 @@
+- name: Deploy and start agent on all nodes
+  hosts: faasunits
+  become: true
+
+  vars:
+    python_deps:
+      - python3
+      - python3-pip
+      - python3-venv
+      - git
+    pip_packages:
+      - flask
+      - requests
+      - psutil
+      - pyyaml
+    repo_url: "https://github.com/yleinl/edge-cloud-agent"
+    app_dir: "/home/{{ ansible_user }}/edge-cloud-agent"
+    venv_dir: "{{ app_dir }}/venv"
+    architecture_template: "templates/architecture.yaml.j2"
+
+  tasks:
+
+#    - name: Install system dependencies
+#      apt:
+#        name: "{{ python_deps }}"
+#        state: present
+#        update_cache: yes
+
+#    - name: Remove old repo if exists
+#      file:
+#        path: "{{ app_dir }}"
+#        state: absent
+
+    - name: Clone agent repo
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        force: yes
+        accept_hostkey: yes
+
+    - name: Create virtual environment
+      shell: |
+        python3 -m venv {{ venv_dir }}
+      args:
+        creates: "{{ venv_dir }}/bin/activate"
+
+    - name: Install Python packages in venv
+      shell: |
+        source {{ venv_dir }}/bin/activate && pip install --no-cache-dir {{ pip_packages | join(' ') }}
+      args:
+        executable: /bin/bash
+
+    - name: Apply node-specific architecture.yaml
+      template:
+        src: "{{ architecture_template }}"
+        dest: "{{ app_dir }}/agent/arch/architecture.yaml"
+        mode: '0644'
+
+    - name: Kill existing agent process (matching app.py)
+      shell: |
+        pkill -f 'python3.*agent/app.py' || true
+      ignore_errors: true
+
+    - name: Kill any process using port 31113
+      shell: |
+        pid=$(lsof -ti:31113) && kill -9 $pid || true
+      ignore_errors: true
+
+    - name: Start agent (background with config)
+      shell: |
+        source {{ venv_dir }}/bin/activate && \
+        PYTHONPATH={{ app_dir }} nohup python3 {{ app_dir }}/agent/app.py --config {{ app_dir }}/agent/arch/architecture.yaml > {{ app_dir }}/agent/agent.log 2>&1 &
+      args:
+        executable: /bin/bash

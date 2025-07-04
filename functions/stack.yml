@@ -1,0 +1,73 @@
+version: 1.0
+provider:
+  name: openfaas
+  gateway: http://127.0.0.1:31112
+
+functions:
+#  task1:
+#    lang: dockerfile
+#    handler: ./DAG/task1
+#    image: yitaolei2025/task1:latest
+#    environment:
+#      read_timeout: 0
+#      write_timeout: 0
+#      exec_timeout: 0
+#    labels:
+#      com.openfaas.scale.min: 1
+#
+#  task2:
+#    lang: dockerfile
+#    handler: ./DAG/task2
+#    image: yitaolei2025/task2:latest
+#    environment:
+#      read_timeout: 0
+#      write_timeout: 0
+#      exec_timeout: 0
+#    labels:
+#      com.openfaas.scale.min: 1
+#
+#  task3:
+#    lang: dockerfile
+#    handler: ./DAG/task3
+#    image: yitaolei2025/task3:latest
+#    environment:
+#      read_timeout: 0
+#      write_timeout: 0
+#      exec_timeout: 0
+#    labels:
+#      com.openfaas.scale.min: 1
+#
+#  image-resize:
+#    lang: dockerfile
+#    handler: ./Data-Locality/image_resize
+#    image: yitaolei2025/image_resize:latest
+#    environment:
+#      read_timeout: 0
+#      write_timeout: 0
+#      exec_timeout: 0
+#    labels:
+#      com.openfaas.scale.min: 1
+#    build_args:
+#      ADDITIONAL_PACKAGE: "libgl1"
+#
+#  floating-point:
+#    lang: dockerfile
+#    handler: ./Default/floating_point
+#    image: yitaolei2025/floating_point:latest
+#    environment:
+#      read_timeout: 0
+#      write_timeout: 0
+#      exec_timeout: 0
+#    labels:
+#      com.openfaas.scale.min: 1
+
+  matrix-multiplication:
+    lang: dockerfile
+    handler: ./Default/matrix_multiplication
+    image: yitaolei2025/matrix_multiplication:latest
+    environment:
+      read_timeout: 0
+      write_timeout: 0
+      exec_timeout: 0
+    labels:
+      com.openfaas.scale.min: 1

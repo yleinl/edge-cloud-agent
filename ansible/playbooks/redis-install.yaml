@@ -1,0 +1,25 @@
+---
+- name: Install and configure Redis locally
+  hosts: faasunits
+  become: true
+
+  tasks:
+    - name: Ensure apt cache is updated
+      apt:
+        update_cache: yes
+
+    - name: Install Redis server
+      apt:
+        name: redis-server
+        state: present
+
+    - name: Ensure Redis is enabled and started
+      systemd:
+        name: redis
+        enabled: yes
+        state: started
+  handlers:
+    - name: Restart Redis
+      systemd:
+        name: redis
+        state: restarted

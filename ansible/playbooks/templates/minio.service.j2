@@ -1,0 +1,14 @@
+[Unit]
+Description=MinIO Server (User mode)
+After=network.target
+
+[Service]
+ExecStart={{ minio_dir }}/minio server {{ data_dir }} --console-address ":9001"
+Environment="MINIO_ROOT_USER={{ access_key }}"
+Environment="MINIO_ROOT_PASSWORD={{ secret_key }}"
+WorkingDirectory={{ minio_dir }}
+Restart=always
+LimitNOFILE=65536
+
+[Install]
+WantedBy=default.target

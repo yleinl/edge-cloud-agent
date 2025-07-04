@@ -1,0 +1,12 @@
+- name: Install K3s server
+  shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -
+  args:
+    executable: /bin/bash
+
+- name: Wait for K3s API
+  shell: kubectl get node
+  register: result
+  retries: 10
+  delay: 5
+  until: result.rc == 0
