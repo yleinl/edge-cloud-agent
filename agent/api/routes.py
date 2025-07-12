@@ -21,6 +21,8 @@ def register_routes(app, config_manager):
         """Main entry point for function execution requests."""
         try:
             data = request.get_json()
+            if "arch" not in data:
+                data["arch"] = config_manager.get_architecture()
             result = scheduler_service.handle_request(data)
             return jsonify(result["response"]), result["status"]
         except Exception as e:
